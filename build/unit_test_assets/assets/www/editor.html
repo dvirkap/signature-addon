@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="utf-8">
+  <title>פשוט לחתום - עריכה וחתימה על PDF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&family=Caveat:wght@600&family=Pacifico&family=Rubik+Scribble&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="editor.css">
+  <!-- Load pdf-lib only -->
+  <script src="libs/pdf-lib.min.js"></script>
+</head>
+<body class="theme-light">
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <button id="menu-toggle" class="btn-menu-toggle" aria-label="תפריט חתימות">
+      <span>☰</span>
+    </button>
+    <div class="logo-area">
+      <span class="logo-icon">✒️</span>
+      <h1 class="logo-title" data-i18n="appName">פשוט לחתום</h1>
+    </div>
+
+    <div class="file-info" id="file-info">
+      <span data-i18n="noFileLoaded">לא נטען קובץ PDF</span>
+    </div>
+
+    <div class="controls-area">
+      <!-- Language Selector -->
+      <div class="control-group">
+        <label for="lang-select" style="font-size: 12px; font-weight: 700; margin-left: 5px; color: var(--text-secondary);" data-i18n="langLabel">שפה / Lang:</label>
+        <select id="lang-select" class="theme-select-dropdown">
+          <option value="he">עברית</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <!-- Theme Selector -->
+      <div class="control-group">
+        <label for="theme-select" style="font-size: 12px; font-weight: 700; margin-left: 5px; color: var(--text-secondary);" data-i18n="themeLabel">סגנון:</label>
+        <select id="theme-select" class="theme-select-dropdown">
+          <option value="light" data-i18n="themeLight">ניקיון קלאסי</option>
+          <option value="warm" data-i18n="themeWarm">נייר חם</option>
+          <option value="chalkboard" data-i18n="themeChalkboard">לוח כיתה</option>
+          <option value="dark" data-i18n="themeDark">סגנון כהה</option>
+        </select>
+      </div>
+
+      <div class="control-group page-controls" id="page-controls" style="display: none;">
+        <span class="page-num-container" id="page-num-container-label">
+          <!-- Populated dynamically -->
+        </span>
+      </div>
+
+      <button id="download-pdf" class="btn btn-success" style="display: none;" data-i18n="saveDownloadPdf">💾 שמור והורד PDF</button>
+
+      <label class="btn btn-outline" id="load-file-label">
+        <span data-i18n="loadPdf">📂 טען PDF</span>
+        <input type="file" id="pdf-file-input" accept="application/pdf" style="display: none;">
+      </label>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Viewport for PDF rendering (scrollable list of pages) -->
+    <section class="viewport" id="pdf-viewport">
+      <div class="drop-zone" id="drop-zone">
+        <span class="drop-zone-icon">📄</span>
+        <h3 data-i18n="dropZoneHeader">גרור והשלך קובץ PDF כאן</h3>
+        <p data-i18n="dropZoneSub">או לחץ על "טען PDF" בסרגל העליון</p>
+      </div>
+
+      <!-- Scroll container for multiple pages -->
+      <div id="pages-container" class="pages-container" style="display: none;">
+        <!-- Dynamic page elements will be injected here -->
+      </div>
+    </section>
+
+    <!-- Sidebar for Signature Management -->
+    <aside class="sidebar">
+      <div class="sidebar-content-wrapper">
+        <div class="sidebar-tabs">
+          <button class="tab-btn active" id="tab-my-signatures" data-i18n="mySignatures">החתימות שלי</button>
+          <button class="tab-btn" id="tab-new-signature" data-i18n="newSignature">חתימה חדשה</button>
+        </div>
+
+        <div class="tab-content" id="content-my-signatures">
+          <div class="signatures-list" id="signatures-list">
+            <div class="empty-state" data-i18n="emptyState">
+              אין חתימות שמורות. לחץ על הלשונית "חתימה חדשה" כדי ליצור חתימה.
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="content-new-signature" style="display: none;">
+          <div class="sub-tabs">
+            <button class="sub-tab-btn active" id="subtab-draw" data-i18n="subtabDraw">ציור</button>
+            <button class="sub-tab-btn" id="subtab-type" data-i18n="subtabType">הקלדה</button>
+            <button class="sub-tab-btn" id="subtab-upload" data-i18n="subtabUpload">העלאה</button>
+          </div>
+
+          <!-- Mode: Draw -->
+          <div class="creator-mode" id="mode-draw">
+            <div class="canvas-wrapper">
+              <canvas id="draw-canvas" width="300" height="150"></canvas>
+            </div>
+            <div class="settings-row">
+              <div class="settings-group">
+                <label data-i18n="sigColor">צבע חתימה:</label>
+                <div class="color-picker">
+                  <button class="color-dot active" data-color="#000000" style="background-color: #000000;"></button>
+                  <button class="color-dot" data-color="#4f46e5" style="background-color: #4f46e5;"></button>
+                  <button class="color-dot" data-color="#ef4444" style="background-color: #ef4444;"></button>
+                </div>
+              </div>
+              <div class="settings-group">
+                <label data-i18n="lineWidth">עובי קו:</label>
+                <select id="draw-weight">
+                  <option value="2" data-i18n="drawThin">דק</option>
+                  <option value="4" selected data-i18n="drawMedium">בינוני</option>
+                  <option value="6" data-i18n="drawThick">עבה</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="draw-name" data-i18n="sigNameLabel">שם החתימה:</label>
+              <input type="text" id="draw-name" data-i18n-placeholder="drawPlaceholder" placeholder='לדוגמה: "חתימה רשמית"'>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-outline" id="btn-clear-draw" data-i18n="clearBtn">נקה</button>
+              <button class="btn btn-primary" id="btn-save-draw" data-i18n="saveBtn">שמור חתימה</button>
+            </div>
+          </div>
+
+          <!-- Mode: Type -->
+          <div class="creator-mode" id="mode-type" style="display: none;">
+            <div class="form-group">
+              <label for="type-input" data-i18n="typeInputLabel">הקלד טקסט לחתימה:</label>
+              <input type="text" id="type-input" data-i18n-placeholder="typePlaceholder" placeholder="הקלד כאן את שמך..." maxlength="40">
+            </div>
+            <div class="settings-row">
+              <div class="settings-group">
+                <label data-i18n="sigColor">צבע:</label>
+                <div class="color-picker" id="type-color-picker">
+                  <button class="color-dot active" data-color="#000000" style="background-color: #000000;"></button>
+                  <button class="color-dot" data-color="#4f46e5" style="background-color: #4f46e5;"></button>
+                  <button class="color-dot" data-color="#ef4444" style="background-color: #ef4444;"></button>
+                </div>
+              </div>
+            </div>
+            <div class="fonts-preview-list">
+              <label data-i18n="fontStyleLabel">בחר סגנון גופן:</label>
+              <div class="font-preview-card active" data-font="Caveat">
+                <span class="preview-text" style="font-family: 'Caveat';">Caveat Style</span>
+              </div>
+              <div class="font-preview-card" data-font="Pacifico">
+                <span class="preview-text" style="font-family: 'Pacifico';">Pacifico Style</span>
+              </div>
+              <div class="font-preview-card" data-font="Rubik Scribble">
+                <span class="preview-text" style="font-family: 'Rubik Scribble';">Rubik Scribble</span>
+              </div>
+              <div class="font-preview-card" data-font="cursive">
+                <span class="preview-text" style="font-family: cursive;">Cursive Handwriting</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="type-name" data-i18n="sigNameLabel">שם החתימה:</label>
+              <input type="text" id="type-name" data-i18n-placeholder="typeSigNamePlaceholder" placeholder='לדוגמה: "חתימה דיגיטלית"'>
+            </div>
+            <button class="btn btn-primary w-full" id="btn-save-type" data-i18n="saveBtn">שמור חתימה</button>
+          </div>
+
+          <!-- Mode: Upload -->
+          <div class="creator-mode" id="mode-upload" style="display: none;">
+            <div class="upload-dropzone" id="upload-dropzone">
+              <span class="upload-icon">📤</span>
+              <p data-i18n="uploadLabel">לחץ להעלאת תמונת חתימה</p>
+              <span class="upload-subtext" data-i18n="uploadSubtext">תומך ב-PNG, JPG, SVG</span>
+              <input type="file" id="image-upload-input" accept="image/*" style="display: none;">
+            </div>
+            <div id="upload-preview-container" style="display: none;">
+              <div class="preview-title" data-i18n="previewTitle">תצוגה מקדימה:</div>
+              <div class="image-preview-wrapper">
+                <img id="upload-preview-img" alt="חתימה שהועלתה">
+              </div>
+              <div class="remove-bg-controls">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="remove-bg-checkbox" checked>
+                  <span class="checkmark"></span>
+                  <span data-i18n="removeBgLabel">הסר רקע לבן (הפוך לשקוף)</span>
+                </label>
+                <div class="slider-group" id="bg-threshold-group">
+                  <div class="slider-labels">
+                    <span data-i18n="bgThresholdLabel">רגישות הסרה:</span>
+                    <span id="threshold-val">220</span>
+                  </div>
+                  <input type="range" id="bg-threshold" min="100" max="250" value="220">
+                </div>
+              </div>
+              <div class="form-group" style="margin-top: 15px;">
+                <label for="upload-name" data-i18n="sigNameLabel">שם החתימה:</label>
+                <input type="text" id="upload-name" data-i18n-placeholder="uploadNamePlaceholder" placeholder='לדוגמה: "חתימה סרוקה"'>
+              </div>
+              <button class="btn btn-primary w-full" id="btn-save-upload" data-i18n="saveBtn">שמור חתימה</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer Credit Info -->
+      <footer class="sidebar-footer" id="sidebar-footer" data-i18n="creditText">
+        התוסף נוצר כשירות ע"י <strong>דביר קפלן</strong> למען אנשי החינוך ❤️
+      </footer>
+    </aside>
+  </main>
+
+  <script src="editor.js"></script>
+</body>
+</html>

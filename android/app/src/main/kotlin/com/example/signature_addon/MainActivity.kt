@@ -1,0 +1,97 @@
+package com.example.signature_addon
+
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.provider.OpenableColumns
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+
+class MainActivity : FlutterActivity() {
+    private val CHANNEL = "com.example.signature_addon/intent"
+    private var intentData: Map<String, String>? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "getIncomingIntent") {
+                result.success(intentData)
+                // Consume the intent data so it doesn't open repeatedly
+                intentData = null
+            } else {
+                result.notImplemented()
+            }
+        }
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        val type = intent.type
+        
+        if (Intent.ACTION_VIEW == action && type != null && type == "application/pdf") {
+            val uri = intent.data ?: return
+            val fileName = getFileName(uri) ?: "document.pdf"
+            val file = copyUriToTempFile(uri, fileName) ?: return
+            
+            intentData = mapOf(
+                "filePath" to file.absolutePath,
+                "fileName" to fileName
+            )
+        }
+    }
+
+    private fun getFileName(uri: Uri): String? {
+        var result: String? = null
+        if (uri.scheme == "content") {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val columnIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (columnIndex != -1) {
+                        result = cursor.getString(columnIndex)
+                    }
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.path
+            val cut = result?.lastIndexOf('/') ?: -1
+            if (cut != -1) {
+                result = result?.substring(cut + 1)
+            }
+        }
+        return result
+    }
+
+    private fun copyUriToTempFile(uri: Uri, fileName: String): File? {
+        return try {
+            val inputStream: InputStream? = contentResolver.openInputStream(uri)
+            val tempFile = File(cacheDir, fileName)
+            val outputStream = FileOutputStream(tempFile)
+            
+            inputStream?.use { input ->
+                outputStream.use { output ->
+                    input.copyTo(output)
+                }
+            }
+            tempFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+}

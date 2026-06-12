@@ -1,7 +1,57 @@
-﻿// ============================================================
-// ׳₪׳©׳•׳˜ ׳׳—׳×׳•׳ - Just sign
+// ============================================================
+// ׳₪׳©׳•׳˜ ׳œ׳—׳×׳•׳  - Just sign
 // Dynamic bilingual (HE/EN) rendering, scrolling & rotation.
 // ============================================================
+
+// Polyfill chrome.storage for PWA and Mobile WebView
+if (typeof chrome === 'undefined' || !chrome.storage) {
+  const mockStorage = {
+    get: (keys, callback) => {
+      return new Promise((resolve) => {
+        const result = {};
+        const keyList = Array.isArray(keys) ? keys : (typeof keys === 'string' ? [keys] : Object.keys(keys || {}));
+        keyList.forEach(key => {
+          const val = localStorage.getItem(key);
+          if (val !== null) {
+            try {
+              result[key] = JSON.parse(val);
+            } catch {
+              result[key] = val;
+            }
+          } else if (keys && typeof keys === 'object' && !Array.isArray(keys)) {
+            result[key] = keys[key];
+          }
+        });
+        if (callback) callback(result);
+        resolve(result);
+      });
+    },
+    set: (items, callback) => {
+      return new Promise((resolve) => {
+        Object.keys(items).forEach(key => {
+          const val = items[key];
+          localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+        });
+        if (callback) callback();
+        resolve();
+      });
+    },
+    remove: (keys, callback) => {
+      return new Promise((resolve) => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        keyList.forEach(key => localStorage.removeItem(key));
+        if (callback) callback();
+        resolve();
+      });
+    }
+  };
+
+  window.chrome = window.chrome || {};
+  window.chrome.storage = {
+    local: mockStorage,
+    sync: mockStorage
+  };
+}
 
 let pdfBytes = null;
 let pdfFileName = "document.pdf";
@@ -147,6 +197,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   initScrollDetection();
   initThemes();
   initLanguages();
+
+  const menuToggle = document.getElementById('menu-toggle');
+  if (menuToggle) {
+    menuToggle.onclick = () => {
+      document.querySelector('.sidebar').classList.toggle('active');
+    };
+  }
 
   const params = new URLSearchParams(window.location.search);
   const pdfUrl = params.get('file');
@@ -381,6 +438,23 @@ function initSignatureCreator() {
   }
   removeBgCb.onchange = () => { document.getElementById('bg-threshold-group').style.opacity = removeBgCb.checked?"1":"0.5"; processUploaded(); };
   bgThreshold.oninput = e => { thresholdVal.textContent = e.target.value; processUploaded(); };
+
+  window.handleScannedSignatureImage = (base64DataUrl) => {
+    document.getElementById('tab-new-signature').click();
+    document.getElementById('subtab-upload').click();
+    
+    uploadedOriginalImg = new Image();
+    uploadedOriginalImg.src = base64DataUrl;
+    uploadedOriginalImg.onload = () => {
+      uploadZone.style.display = 'none';
+      previewContainer.style.display = 'block';
+      const nameInput = document.getElementById('upload-name');
+      if (nameInput) {
+        nameInput.value = `סריקה ${new Date().toLocaleDateString('he-IL')}`;
+      }
+      processUploaded();
+    };
+  };
 
   function processUploaded() {
     if (!uploadedOriginalImg) return;
@@ -1000,13 +1074,28 @@ document.getElementById('download-pdf').onclick = async () => {
     }
 
     const modBytes = await pdfDoc.save();
-    const blob = new Blob([modBytes], { type: "application/pdf" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
     let outName = pdfFileName;
     if (outName.toLowerCase().endsWith('.pdf')) outName = outName.slice(0,-4) + "_signed.pdf";
     else outName += "_signed.pdf";
-    a.download = outName; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 500);
+
+    if (window.FlutterJustSign) {
+      let binary = '';
+      const len = modBytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(modBytes[i]);
+      }
+      const base64 = window.btoa(binary);
+      window.FlutterJustSign.postMessage(JSON.stringify({
+        action: 'share',
+        fileName: outName,
+        data: base64
+      }));
+    } else {
+      const blob = new Blob([modBytes], { type: "application/pdf" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = outName; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 500);
+    }
   } catch (err) {
     console.error("Error signing PDF:", err);
     alert(translations[currentLanguage].signingError);

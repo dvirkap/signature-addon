@@ -1,4 +1,4 @@
-﻿/* ------------------------------------------------------------
+/* ------------------------------------------------------------
    Stitch Theme Definitions (Semantic Colors)
    ------------------------------------------------------------ */
 .theme-light {
@@ -891,6 +891,153 @@ body[dir="ltr"] .local-indicator {
 .sig-card-local-disabled-wrapper {
   background: var(--bg-input) !important;
   color: var(--text-secondary);
+}
+
+/* Mobile Responsive Styling */
+.btn-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 5px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .btn-menu-toggle {
+    display: flex;
+  }
+
+  .top-bar {
+    padding: 0 15px;
+    height: 60px;
+    justify-content: space-between;
+  }
+
+  .top-bar .logo-area {
+    margin-right: 0;
+  }
+
+  .top-bar .logo-title {
+    font-size: 16px;
+  }
+
+  .file-info {
+    display: none; /* Hide on small screens to save space */
+  }
+
+  .controls-area {
+    gap: 8px;
+  }
+
+  .controls-area .control-group {
+    display: none; /* Hide selectors by default on mobile */
+  }
+
+  #load-file-label {
+    display: none; /* We will use native Flutter file picker */
+  }
+
+  #download-pdf {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .workspace {
+    position: relative;
+    height: calc(100vh - 60px);
+  }
+
+  .viewport {
+    padding: 10px;
+  }
+
+  /* Sidebar drawer behavior */
+  .sidebar {
+    position: fixed;
+    top: 60px;
+    bottom: 0;
+    width: 280px;
+    height: calc(100vh - 60px);
+    z-index: 100;
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Slide directions depending on page direction */
+  html[dir="rtl"] .sidebar {
+    right: 0;
+    left: auto;
+    border-left: none;
+    border-right: 1px solid var(--border-color);
+    transform: translateX(100%);
+  }
+
+  html[dir="ltr"] .sidebar {
+    left: 0;
+    right: auto;
+    border-right: none;
+    border-left: 1px solid var(--border-color);
+    transform: translateX(-100%);
+  }
+
+  /* Active/open drawer state */
+  html[dir="rtl"] .sidebar.active {
+    transform: translateX(0);
+  }
+
+  html[dir="ltr"] .sidebar.active {
+    transform: translateX(0);
+  }
+
+  /* Larger touch targets for resize/rotate handles */
+  .sig-instance .rotate-handle {
+    width: 16px;
+    height: 16px;
+    top: -28px;
+  }
+
+  .sig-instance .rotate-line {
+    height: 20px;
+    top: -20px;
+  }
+
+  .sig-instance .delete-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 16px;
+    line-height: 24px;
+    top: -12px;
+    right: -12px;
+    display: block; /* Always show delete button on touch screens */
+  }
+
+  .sig-instance .resize-handle {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Add touch offsets via padding for tiny handles */
+  .sig-instance .resize-handle::after {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    right: -15px;
+    bottom: -15px;
+  }
+
+  .sig-instance .rotate-handle::after {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    right: -15px;
+    bottom: -15px;
+  }
 }
 
 
