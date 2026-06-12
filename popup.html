@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+    }
+    body {
+      width: 320px;
+      margin: 0;
+      font-family: 'Assistant', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .logo-icon {
+      font-size: 20px;
+    }
+    .title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.15s ease-in-out;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .btn:hover {
+      background: var(--bg);
+      border-color: var(--accent);
+    }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: var(--border);
+      border-color: var(--border);
+      color: var(--muted);
+    }
+    .footer {
+      text-align: center;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo-icon">✒️</span>
+    <div class="title" id="app-title">פשוט לחתום</div>
+  </div>
+  <button id="sign-current" class="btn btn-primary" disabled>חתום על קובץ ה-PDF הנוכחי</button>
+  <button id="open-editor" class="btn">פתח את לוח החתימות</button>
+  <div class="footer" id="credits-footer">פשוט לחתום ע"י דביר קפלן</div>
+  <script src="popup.js"></script>
+</body>
+</html>
