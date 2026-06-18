@@ -1,0 +1,271 @@
+﻿
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: Color(0xFF4F46E5))
+                          : null,
+>                     onTap: () {
+                        AppSettings.writeSetting('language', code);
+                        appLanguage.value = code;
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+  
+    @override
+                        padding: EdgeInsets.zero,
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.picture_as_pdf, color: Color(0xFF4F46E5)),
+                            title: Text(getStr('pick_pdf')),
+>                           onTap: () {
+                              Navigator.pop(context);
+                              _pickPdfFile();
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.gesture, color: Color(0xFF4F46E5)),
+                            title: Text(getStr('manage_signatures')),
+>                           onTap: () {
+                              Navigator.pop(context);
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const SignatureManagerScreen(),
+                                ),
+                              ).then((_) => _loadRecentFiles());
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.archive, color: Color(0xFF4F46E5)),
+                            title: Text(getStr('archive_title')),
+>                           onTap: () {
+                              Navigator.pop(context);
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const ArchiveScreen(),
+                                ),
+                              ).then((_) => _loadRecentFiles());
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.language, color: Color(0xFF4F46E5)),
+                            title: Text(getStr('language')),
+>                           onTap: () {
+                              Navigator.pop(context);
+                              _showLanguageSelectionDialog(context);
+                            },
+                          ),
+                          ValueListenableBuilder<bool>(
+                            valueListenable: IapService.instance.isPro,
+                            builder: (builderContext, isProUnlocked, child) {
+                              return ListTile(
+                                leading: Icon(
+                                  isProUnlocked ? Icons.verified : Icons.star,
+                                  color: const Color(0xFF4F46E5),
+                                ),
+                                title: Text(
+                                  isProUnlocked
+                                      ? (lang == 'he' ? '׳’׳¨׳¡׳× PRO ׳₪׳¢׳™׳׳”' : 'PRO Version Active')
+                                    ? null
+                                    : Text(
+                                        lang == 'he' ? '׳¢׳¨׳™׳›׳× ׳“׳₪׳™׳ ׳•׳¡׳¨׳™׳§׳× ׳׳¡׳׳›׳™׳' : 'Page editing 
+& scanning',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+>                               onTap: () {
+                                  Navigator.pop(builderContext);
+                                  if (!isProUnlocked) {
+                                    PremiumPaywall.show(context);
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                          const Divider(),
+                          ListTile(
+                            leading: const Icon(Icons.info_outline, color: Color(0xFF4F46E5)),
+                            title: Text(getStr('about_app')),
+>                           onTap: () {
+                              Navigator.pop(context);
+                              _showAboutDialog(context);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        '${getStr('version')} 1.1.0',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      ),
+                    ),
+                  ],
+                                            subtitle: Text(
+                                              '$dateStr ג€¢ $sizeStr',
+                                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                            ),
+                                            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: 
+Colors.grey),
+>                                           onTap: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => PdfReaderScreen(file: file, displayName: name),
+                                                ),
+                                              ).then((_) => _loadRecentFiles());
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.camera_alt),
+                    title: Text(getStr('add_from_camera')),
+>                   onTap: () {
+                      Navigator.pop(context);
+                      _addFromCamera();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.photo_library),
+                    title: Text(getStr('add_from_gallery')),
+>                   onTap: () {
+                      Navigator.pop(context);
+                      _addFromGallery();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  
+    @override
+    Widget build(BuildContext context) {
+      final isRtl = appLanguage.value == 'he';
+                              itemCount: savedSignatures.length,
+                              itemBuilder: (context, index) {
+                                final file = savedSignatures[index];
+                                final label = getSignatureLabel(file, appLanguage.value);
+                                return GestureDetector(
+>                                 onTap: () async {
+                                    Navigator.pop(context);
+                                    final bytes = await file.readAsBytes();
+                                    _loadSignatureFromBytes(bytes);
+                                  },
+                                  child: Card(
+                                    clipBehavior: Clip.antiAlias,
+                                    elevation: 3,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: SizedBox(
+                                      width: 120,
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+    }
+  
+    Widget _colorOption(Color color, Color selectedColor, Function(Color) onSelect) {
+      final isSelected = color == selectedColor;
+      return GestureDetector(
+>       onTap: () => onSelect(color),
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isSelected ? Colors.green : Colors.transparent,
+              width: 3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                spreadRadius: 1,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.text_format),
+                      title: Text(getStr('free_text')),
+>                     onTap: () {
+                        Navigator.pop(context);
+                        _showTextInputDialog(
+                          initialText: '',
+                          title: getStr('free_text'),
+                          isPrintedName: false,
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.date_range),
+                      title: Text(getStr('current_date')),
+>                     onTap: () {
+                        Navigator.pop(context);
+                        _showTextInputDialog(
+                          initialText: _formatCurrentDate(),
+                          title: getStr('current_date'),
+                          isPrintedName: false,
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.badge_outlined),
+                      title: Text(getStr('printed_name')),
+>                     onTap: () async {
+                        Navigator.pop(context);
+                        final savedName = await AppSettings.getPrintedName();
+                        _showTextInputDialog(
+                          initialText: savedName,
+                          title: getStr('printed_name_saved'),
+                          isPrintedName: true,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _deleteFile(file),
+                                ),
+                              ],
+                            ),
+>                           onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => PdfReaderScreen(file: file, displayName: name),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      );
+    }
+  }
+  
+
+

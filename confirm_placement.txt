@@ -1,0 +1,74 @@
+﻿
+>   Future<void> _confirmActiveSignaturePlacement() async {
+      if (_signatureBytes == null || _signatureImage == null) return;
+  
+      setState(() => _isProcessing = true);
+  
+      try {
+        Uint8List bytesToBake = _signatureBytes!;
+        ui.Image imageToBake = _signatureImage!;
+  
+        if (_signatureCaption != null && _signatureCaption!.isNotEmpty) {
+          bytesToBake = await _combineSignatureAndCaption(_signatureBytes!, _signatureCaption!);
+          final codec = await ui.instantiateImageCodec(bytesToBake);
+          final frame = await codec.getNextFrame();
+          imageToBake = frame.image;
+        }
+  
+        setState(() {
+          _pendingSignatures.add(SignatureOverlay(
+            signatureBytes: bytesToBake,
+            signatureWidth: imageToBake.width,
+            signatureHeight: imageToBake.height,
+            pageNumber: _currentPage,
+            rx: _overlayRx,
+            ry: _overlayRy,
+            rw: _overlayRw,
+            rotation: _overlayRotation,
+            image: imageToBake,
+          ));
+  
+          // Reset active editing signature
+          _signatureBytes = null;
+          _signatureImage = null;
+          _signatureCaption = null;
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${getStr('error_baking')} $e')),
+        );
+      } finally {
+        setState(() => _isProcessing = false);
+      }
+    }
+  
+    Future<void> _showSignatureSelectionSheet() async {
+      final List<File> savedSignatures = await SignatureStorage.getSignatures();
+  
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) {
+          return Directionality(
+            textDirection: appLanguage.value == 'he' ? TextDirection.rtl : TextDirection.ltr,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      getStr('select_or_add'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton.icon(
+
+

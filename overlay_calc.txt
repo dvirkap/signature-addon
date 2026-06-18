@@ -1,0 +1,96 @@
+﻿
+    double? _targetScrollY;
+  
+    // PDF page sizes loaded on startup
+    List<Size> _pdfPageSizes = [];
+    List<int> _pdfPageRotations = [];
+  
+    // Active Signature Overlay State
+    Uint8List? _signatureBytes;
+    ui.Image? _signatureImage;
+    String? _signatureCaption;
+  
+    // Pending Signatures
+    List<SignatureOverlay> _pendingSignatures = [];
+  
+    // Page-relative values for active signature
+>   double _overlayRx = 0.5; // center X (0.0 to 1.0)
+    double _overlayRy = 0.5; // center Y (0.0 to 1.0)
+    double _overlayRw = 0.3; // width relative to page width (0.0 to 1.0)
+    double _overlayRotation = 0.0; // In radians
+  
+    // Gesture Tracker Base values
+    double _baseRw = 0.3;
+    double _baseRotation = 0.0;
+    double _baseRx = 0.5;
+    double _baseRy = 0.5;
+    Offset _startFocalPoint = Offset.zero;
+  
+    @override
+    void initState() {
+      super.initState();
+      _currentPdfBytes = widget.pdfBytes;
+  
+        // Normalize to page relative coordinate (0.0 to 1.0)
+        initialRx = (centerXOnPage / W_page_zoomed).clamp(0.0, 1.0);
+        initialRy = (centerYOnPage / H_page_zoomed).clamp(0.0, 1.0);
+  
+        // Sizing: Target a screen-space width of 140 logical pixels, clamped to 40% of viewport width
+        double targetVisualWidth = 140.0;
+        targetVisualWidth = targetVisualWidth.clamp(40.0, W_viewport * 0.4);
+        initialRw = (targetVisualWidth / W_page_zoomed).clamp(0.05, 0.9);
+      }
+  
+      setState(() {
+        _signatureBytes = bytes;
+        _signatureImage = frame.image;
+        _signatureCaption = defaultLabel;
+>       _overlayRx = initialRx;
+        _overlayRy = initialRy;
+        _overlayRw = initialRw;
+        _overlayRotation = 0.0;
+      });
+    }
+  
+    Future<void> _scanSignatureFromCamera() async {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+                        _baseRw = _overlayRw;
+                        _baseRotation = _overlayRotation;
+                        _baseRx = _overlayRx;
+                        _baseRy = _overlayRy;
+                        _startFocalPoint = details.focalPoint;
+                      },
+                      onScaleUpdate: (details) {
+                        setState(() {
+                          _overlayRw = (_baseRw * details.scale).clamp(0.05, 0.9);
+                          _overlayRotation = _baseRotation + details.rotation;
+  
+                          final Offset delta = details.focalPoint - _startFocalPoint;
+                          final double deltaRx = delta.dx / W_page_zoomed;
+                          final double deltaRy = delta.dy / H_page_zoomed;
+  
+>                         _overlayRx = (_baseRx + deltaRx).clamp(0.0, 1.0);
+                          _overlayRy = (_baseRy + deltaRy).clamp(0.0, 1.0);
+                        });
+                      },
+                      child: Transform.rotate(
+                        angle: _overlayRotation,
+                        child: Stack(
+                          children: [
+                            // Base container that defines Stack bounds and handles hit testing correctly
+                            Container(
+                              width: activeSigWidth + 20,
+                              height: activeSigHeight + 50,
+                              color: Colors.transparent,
+                            ),
+                            // Signature image positioned inside Stack bounds
+                            Positioned(
+
+

@@ -75,87 +75,6 @@ let uploadedOriginalImg = null;
 let pdfjsLib = null;
 let pdfjsDoc = null;
 
-// Translation Dictionary
-const translations = {
-  he: {
-    appName: "׳₪׳©׳•׳˜ ׳׳—׳×׳•׳",
-    loadPdf: "נ“‚ ׳˜׳¢׳ PDF",
-    saveDownloadPdf: "נ’¾ ׳©׳׳•׳¨ ׳•׳”׳•׳¨׳“ PDF",
-    noFileLoaded: "׳׳ ׳ ׳˜׳¢׳ ׳§׳•׳‘׳¥ PDF",
-    pageOf: "׳¢׳׳•׳“ {current} ׳׳×׳•׳ {total}",
-    mySignatures: "׳”׳—׳×׳™׳׳•׳× ׳©׳׳™",
-    newSignature: "׳—׳×׳™׳׳” ׳—׳“׳©׳”",
-    subtabDraw: "׳¦׳™׳•׳¨",
-    subtabType: "׳”׳§׳׳“׳”",
-    subtabUpload: "׳”׳¢׳׳׳”",
-    sigColor: "׳¦׳‘׳¢ ׳—׳×׳™׳׳”:",
-    lineWidth: "׳¢׳•׳‘׳™ ׳§׳•:",
-    drawThin: "׳“׳§",
-    drawMedium: "׳‘׳™׳ ׳•׳ ׳™",
-    drawThick: "׳¢׳‘׳”",
-    sigNameLabel: "׳©׳ ׳”׳—׳×׳™׳׳”:",
-    drawPlaceholder: '׳׳“׳•׳’׳׳”: "׳—׳×׳™׳׳” ׳¨׳©׳׳™׳×"',
-    clearBtn: "׳ ׳§׳”",
-    saveBtn: "׳©׳׳•׳¨ ׳—׳×׳™׳׳”",
-    alertDrawSomething: "׳׳ ׳ ׳¦׳™׳™׳¨ ׳׳©׳”׳• ׳׳₪׳ ׳™ ׳”׳©׳׳™׳¨׳”!",
-    typeInputLabel: "׳”׳§׳׳“ ׳˜׳§׳¡׳˜ ׳׳—׳×׳™׳׳”:",
-    typePlaceholder: "׳”׳§׳׳“ ׳›׳׳ ׳׳× ׳©׳׳...",
-    typeSigNamePlaceholder: '׳׳“׳•׳’׳׳”: "׳—׳×׳™׳׳” ׳“׳™׳’׳™׳˜׳׳™׳×"',
-    fontStyleLabel: "׳‘׳—׳¨ ׳¡׳’׳ ׳•׳ ׳’׳•׳₪׳:",
-    uploadLabel: "׳׳—׳¥ ׳׳”׳¢׳׳׳× ׳×׳׳•׳ ׳× ׳—׳×׳™׳׳”",
-    uploadSubtext: "׳×׳•׳׳ ׳‘-PNG, JPG, SVG",
-    previewTitle: "׳×׳¦׳•׳’׳” ׳׳§׳“׳™׳׳”:",
-    removeBgLabel: "׳”׳¡׳¨ ׳¨׳§׳¢ ׳׳‘׳ (׳”׳₪׳•׳ ׳׳©׳§׳•׳£)",
-    bgThresholdLabel: "׳¨׳’׳™׳©׳•׳× ׳”׳¡׳¨׳”:",
-    uploadNamePlaceholder: '׳׳“׳•׳’׳׳”: "׳—׳×׳™׳׳” ׳¡׳¨׳•׳§׳”"',
-    emptyState: "׳׳™׳ ׳—׳×׳™׳׳•׳× ׳©׳׳•׳¨׳•׳×. ׳׳—׳¥ ׳¢׳ ׳”׳׳©׳•׳ ׳™׳× \"׳—׳×׳™׳׳” ׳—׳“׳©׳”\" ׳›׳“׳™ ׳׳™׳¦׳•׳¨ ׳—׳×׳™׳׳”.",
-    maxQuota: "׳׳›׳¡׳” ׳׳¨׳‘׳™׳× ׳©׳ 15 ׳—׳×׳™׳׳•׳×.",
-    deleteConfirm: '׳׳׳—׳•׳§ ׳׳× "{name}"?',
-    loadPdfFirst: "׳˜׳¢׳ PDF ׳×׳—׳™׳׳”!",
-    loadingPdfText: "׳˜׳•׳¢׳ PDF...",
-    loadingError: "׳©׳’׳™׳׳× ׳˜׳¢׳™׳ ׳”",
-    loadPdfFailed: "׳׳ ׳”׳¦׳׳—׳ ׳• ׳׳˜׳¢׳•׳ ׳׳× ׳”-PDF ׳׳”׳›׳×׳•׳‘׳×. ׳׳ ׳ ׳©׳׳•׳¨ ׳׳× ׳”׳§׳•׳‘׳¥ ׳•׳’׳¨׳•׳¨ ׳׳•׳×׳• ׳׳›׳׳.",
-    loadingPdfAlert: "׳©׳’׳™׳׳” ׳‘׳˜׳¢׳™׳ ׳× ׳”-PDF.",
-    creatingFile: "ג³ ׳™׳•׳¦׳¨ ׳§׳•׳‘׳¥...",
-    signingError: "׳©׳’׳™׳׳” ׳‘׳™׳¦׳™׳¨׳× ׳”-PDF ׳”׳—׳×׳•׳.",
-    snapTooltip: "׳’׳¨׳•׳¨ ׳׳¡׳™׳‘׳•׳‘ ׳”׳—׳×׳™׳׳”",
-    deleteTooltip: "׳׳—׳§",
-    creditText: '׳”׳×׳•׳¡׳£ ׳ ׳•׳¦׳¨ ׳›׳©׳™׳¨׳•׳× ׳¢"׳™ <strong>׳“׳‘׳™׳¨ ׳§׳₪׳׳</strong> ׳׳׳¢׳ ׳׳ ׳©׳™ ׳”׳—׳™׳ ׳•׳ ג₪ן¸',
-    themeLabel: "׳¡׳’׳ ׳•׳:",
-    themeLight: "׳ ׳™׳§׳™׳•׳ ׳§׳׳׳¡׳™",
-    themeWarm: "׳ ׳™׳™׳¨ ׳—׳",
-    themeChalkboard: "׳׳•׳— ׳›׳™׳×׳”",
-    themeDark: "׳¡׳’׳ ׳•׳ ׳›׳”׳”",
-    dropZoneHeader: "׳’׳¨׳•׳¨ ׳•׳”׳©׳׳ ׳§׳•׳‘׳¥ PDF ׳›׳׳",
-    dropZoneSub: "׳׳• ׳׳—׳¥ ׳¢׳ \"׳˜׳¢׳ PDF\" ׳‘׳¡׳¨׳’׳ ׳”׳¢׳׳™׳•׳",
-    langLabel: "׳©׳₪׳” / Lang:"
-  },
-  en: {
-    appName: "Just sign",
-    loadPdf: "נ“‚ Load PDF",
-    saveDownloadPdf: "נ’¾ Save & Download PDF",
-    noFileLoaded: "No PDF file loaded",
-    pageOf: "Page {current} of {total}",
-    mySignatures: "My Signatures",
-    newSignature: "New Signature",
-    subtabDraw: "Draw",
-    subtabType: "Type",
-    subtabUpload: "Upload",
-    sigColor: "Signature Color:",
-    lineWidth: "Line Width:",
-    drawThin: "Thin",
-    drawMedium: "Medium",
-    drawThick: "Thick",
-    sigNameLabel: "Signature Name:",
-    drawPlaceholder: 'e.g. "Official Signature"',
-    clearBtn: "Clear",
-    saveBtn: "Save Signature",
-    alertDrawSomething: "Please draw something before saving!",
-    typeInputLabel: "Type text for signature:",
-    typePlaceholder: "Type your name here...",
-    typeSigNamePlaceholder: 'e.g. "Digital Signature"',
-    fontStyleLabel: "Choose font style:",
-    uploadLabel: "Click to upload signature image",
     uploadSubtext: "Supports PNG, JPG, SVG",
     previewTitle: "Preview:",
     removeBgLabel: "Remove white background (make transparent)",
@@ -227,6 +146,28 @@ async function loadPdfJs() {
 // ==================== Languages ====================
 function initLanguages() {
   const select = document.getElementById('lang-select');
+  if (!select) return;
+  select.innerHTML = '';
+  
+  // Hebrew and English first
+  const topCodes = ['he', 'en'];
+  const otherCodes = Object.keys(appSupportedLanguages)
+    .filter(code => !topCodes.includes(code));
+    
+  otherCodes.sort((a, b) => {
+    const nameA = appSupportedLanguages[a] || '';
+    const nameB = appSupportedLanguages[b] || '';
+    return nameA.localeCompare(nameB);
+  });
+  
+  const allCodes = [...topCodes, ...otherCodes];
+  allCodes.forEach(code => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = appSupportedLanguages[code] || code;
+    select.appendChild(opt);
+  });
+
   select.onchange = (e) => {
     const lang = e.target.value;
     currentLanguage = lang;

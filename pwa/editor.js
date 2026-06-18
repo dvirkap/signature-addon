@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // פשוט לחתום - Just sign - PWA Core Logic
 // Dynamic bilingual (HE/EN) rendering, scrolling, touch rotation & resize.
 // ============================================================
@@ -25,113 +25,6 @@ let uploadedOriginalImg = null;
 let pdfjsLib = null;
 let pdfjsDoc = null;
 
-// Translation Dictionary
-const translations = {
-  he: {
-    appName: "פשוט לחתום - Just sign",
-    loadPdf: "📁 טעינת PDF",
-    saveDownloadPdf: "💾 שמירה והורדת PDF",
-    noFileLoaded: "לא נטען קובץ PDF",
-    pageOf: "עמוד {current} מתוך {total}",
-    mySignatures: "החתימות שלי",
-    newSignature: "חתימה חדשה",
-    subtabDraw: "ציור",
-    subtabType: "הקלדה",
-    subtabUpload: "העלאה",
-    sigColor: "צבע החתימה:",
-    lineWidth: "עובי קו:",
-    drawThin: "דק",
-    drawMedium: "בינוני",
-    drawThick: "עבה",
-    sigNameLabel: "שם החתימה:",
-    drawPlaceholder: 'לדוגמה: "חתימה רשמית"',
-    clearBtn: "ניקוי",
-    saveBtn: "שמירת חתימה",
-    alertDrawSomething: "בבקשה צייר משהו לפני השמירה!",
-    typeInputLabel: "הקלד טקסט לחתימה:",
-    typePlaceholder: "הקלד את שמך כאן...",
-    typeSigNamePlaceholder: 'לדוגמה: "חתימת טקסט"',
-    fontStyleLabel: "סגנון כתב:",
-    uploadLabel: "גרור תמונה או לחץ להעלאת קובץ",
-    uploadSubtext: "תומך ב-PNG, JPG, SVG",
-    previewTitle: "תצוגה מקדימה:",
-    removeBgLabel: "הסרת רקע לבן (הפיכה לשקוף)",
-    bgThresholdLabel: "רגישות הסרה:",
-    uploadNamePlaceholder: 'לדוגמה: "חתימה סרוקה"',
-    emptyState: "עדיין אין חתימות שמורות. לחץ על הלשונית \"חתימה חדשה\" כדי ליצור חתימה.",
-    maxQuota: "הגעת למכסה המרבית של 15 חתימות.",
-    deleteConfirm: 'האם למחוק את "{name}"?',
-    loadPdfFirst: "יש לטעון קובץ PDF תחילה!",
-    loadingPdfText: "טוען קובץ PDF...",
-    loadingError: "שגיאת טעינה",
-    loadPdfFailed: "טעינת ה-PDF נכשלה. אנא הורד את הקובץ וגרור אותו לכאן.",
-    loadingPdfAlert: "שגיאה בטעינת ה-PDF.",
-    creatingFile: "⚙️ מייצר קובץ...",
-    signingError: "שגיאה ביצירת ה-PDF החתום.",
-    snapTooltip: "גרור כדי לסובב את החתימה",
-    deleteTooltip: "מחיקה",
-    creditText: 'האפליקציה נוצרה כשירות ע"י <strong>דביר קפלן</strong> למען אנשי החינוך ❤️',
-    themeLabel: "עיצוב:",
-    themeLight: "קלאסי בהיר",
-    themeWarm: "נייר חמים",
-    themeChalkboard: "לוח כיתה",
-    themeDark: "עיצוב כהה",
-    dropZoneHeader: "גרור ושחרר קובץ PDF לכאן",
-    dropZoneSub: 'או לחץ על "טעינת PDF" כדי לבחור קובץ',
-    langLabel: "שפה / Lang:",
-    exportSigs: "📤 ייצוא גיבוי",
-    importSigs: "📥 ייבוא גיבוי",
-    confirmImport: "האם אתה בטוח שברצונך לייבא חתימות מקובץ זה? פעולה זו תדרוס חתימות קיימות בעלות מזהה זהה.",
-    importSuccess: "החתימות יובאו בהצלחה!",
-    importError: "ייבוא הגיבוי נכשל! בדוק שהקובץ תקין."
-  },
-  en: {
-    appName: "Just sign",
-    loadPdf: "📁 Load PDF",
-    saveDownloadPdf: "💾 Save & Download PDF",
-    noFileLoaded: "No PDF file loaded",
-    pageOf: "Page {current} of {total}",
-    mySignatures: "My Signatures",
-    newSignature: "New Signature",
-    subtabDraw: "Draw",
-    subtabType: "Type",
-    subtabUpload: "Upload",
-    sigColor: "Signature Color:",
-    lineWidth: "Line Width:",
-    drawThin: "Thin",
-    drawMedium: "Medium",
-    drawThick: "Thick",
-    sigNameLabel: "Signature Name:",
-    drawPlaceholder: 'e.g. "Official Signature"',
-    clearBtn: "Clear",
-    saveBtn: "Save Signature",
-    alertDrawSomething: "Please draw something before saving!",
-    typeInputLabel: "Type text for signature:",
-    typePlaceholder: "Type your name here...",
-    typeSigNamePlaceholder: 'e.g. "Digital Signature"',
-    fontStyleLabel: "Choose font style:",
-    uploadLabel: "Click to upload signature image",
-    uploadSubtext: "Supports PNG, JPG, SVG",
-    previewTitle: "Preview:",
-    removeBgLabel: "Remove white background (make transparent)",
-    bgThresholdLabel: "Removal sensitivity:",
-    uploadNamePlaceholder: 'e.g. "Scanned Signature"',
-    emptyState: "No saved signatures. Click the \"New Signature\" tab to create one.",
-    maxQuota: "Maximum quota of 15 signatures reached.",
-    deleteConfirm: 'Delete "{name}"?',
-    loadPdfFirst: "Load PDF first!",
-    loadingPdfText: "Loading PDF...",
-    loadingError: "Loading Error",
-    loadPdfFailed: "Failed to load PDF from URL. Please save the file and drag it here.",
-    loadingPdfAlert: "Error loading PDF.",
-    creatingFile: "⚙️ Creating file...",
-    signingError: "Error generating signed PDF.",
-    snapTooltip: "Drag to rotate signature",
-    deleteTooltip: "Delete",
-    creditText: "App created as a service by <strong>Dvir Kaplan</strong> for educators ❤️",
-    themeLabel: "Theme:",
-    themeLight: "Classic Light",
-    themeWarm: "Warm Paper",
     themeChalkboard: "Classroom Chalkboard",
     themeDark: "Sleek Dark",
     dropZoneHeader: "Drag and drop PDF file here",
@@ -171,6 +64,28 @@ async function loadPdfJs() {
 // ==================== Languages ====================
 function initLanguages() {
   const select = document.getElementById('lang-select');
+  if (!select) return;
+  select.innerHTML = '';
+  
+  // Hebrew and English first
+  const topCodes = ['he', 'en'];
+  const otherCodes = Object.keys(appSupportedLanguages)
+    .filter(code => !topCodes.includes(code));
+    
+  otherCodes.sort((a, b) => {
+    const nameA = appSupportedLanguages[a] || '';
+    const nameB = appSupportedLanguages[b] || '';
+    return nameA.localeCompare(nameB);
+  });
+  
+  const allCodes = [...topCodes, ...otherCodes];
+  allCodes.forEach(code => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = appSupportedLanguages[code] || code;
+    select.appendChild(opt);
+  });
+
   select.onchange = (e) => {
     const lang = e.target.value;
     currentLanguage = lang;

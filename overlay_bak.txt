@@ -1,0 +1,432 @@
+﻿
+    final GlobalKey _pdfViewerKey = GlobalKey();
+    final GlobalKey _activeSignatureKey = GlobalKey();
+  
+    bool _isProcessing = false;
+  
+>   // Viewport tracking state for overlays (prevents lag/drift during scroll/zoom)
+    int _currentPage = 1;
+    double _zoomLevel = 1.0;
+    int _pdfUpdateCounter = 0;
+  
+    // Real-time PDF bytes and Undo history
+    Uint8List? _currentPdfBytes;
+    Uint8List get currentPdfBytes => _currentPdfBytes ?? widget.pdfBytes;
+    final List<String> _pdfHistoryPaths = [];
+  
+    Future<void> _pushToHistory(Uint8List bytes) async {
+      try {
+        final tempDir = await getTemporaryDirectory();
+        final historyDir = Directory('${tempDir.path}/pdf_history_cache');
+        if (!await historyDir.exists()) {
+          await historyDir.create(recursive: true);
+        }
+        final filePath = '${historyDir.path}/history_${DateTime.now().microsecondsSinceEpoch}.pdf';
+        final file = File(filePath);
+        await file.writeAsBytes(bytes);
+        _pdfHistoryPaths.add(filePath);
+  
+    // PDF page sizes loaded on startup
+    List<Size> _pdfPageSizes = [];
+    List<int> _pdfPageRotations = [];
+  
+>   // Active Signature Overlay State
+    Uint8List? _signatureBytes;
+    ui.Image? _signatureImage;
+    String? _signatureCaption;
+  
+    // Page-relative values for active signature
+>   double _overlayRx = 0.5; // center X (0.0 to 1.0)
+>   double _overlayRy = 0.5; // center Y (0.0 to 1.0)
+>   double _overlayRw = 0.3; // width relative to page width (0.0 to 1.0)
+>   double _overlayRotation = 0.0; // In radians
+  
+    // Gesture Tracker Base values
+    double _baseRw = 0.3;
+    double _baseRotation = 0.0;
+    double _baseRx = 0.5;
+    double _baseRy = 0.5;
+    Offset _startFocalPoint = Offset.zero;
+  
+    @override
+    void initState() {
+      super.initState();
+      _currentPdfBytes = widget.pdfBytes;
+    }
+  
+    @override
+    void dispose() {
+      _pdfViewerController.dispose();
+      _cleanupHistoryCache();
+      super.dispose();
+    }
+  
+      setState(() {
+        _signatureBytes = bytes;
+        _signatureImage = frame.image;
+        _signatureCaption = defaultLabel;
+>       _overlayRx = initialRx;
+>       _overlayRy = initialRy;
+>       _overlayRw = initialRw;
+>       _overlayRotation = 0.0;
+      });
+    }
+  
+    Future<void> _scanSignatureFromCamera() async {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        if (!mounted) return;
+        final processed = await Navigator.push<Uint8List>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SignatureCropEditorScreen(imageBytes: bytes),
+          ),
+        );
+        if (processed != null) {
+            pdfBytes: finalBytes,
+            signatureBytes: bytesToBake,
+            signatureWidth: imageToBake.width,
+            signatureHeight: imageToBake.height,
+            pageNumber: _currentPage,
+>           rx: _overlayRx,
+>           ry: _overlayRy,
+>           rw: _overlayRw,
+>           rotation: _overlayRotation,
+          );
+          finalBytes = await compute(_bakeSignatureCompute, params);
+        }
+  
+        // Save to internal archive
+        final docDir = await getApplicationDocumentsDirectory();
+        final archiveDir = Directory('${docDir.path}/archive');
+        if (!await archiveDir.exists()) {
+          await archiveDir.create(recursive: true);
+        }
+        
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final cleanName = widget.pdfName.replaceAll('.pdf', '');
+        final filename = '${cleanName}_signed_$timestamp.pdf';
+        final file = File('${archiveDir.path}/$filename');
+        await file.writeAsBytes(finalBytes);
+  
+        // Attempt to save to public Downloads or chosen folder
+        String? targetDirPath;
+        bool savedSuccessfully = false;
+            pdfBytes: finalBytes,
+            signatureBytes: bytesToBake,
+            signatureWidth: imageToBake.width,
+            signatureHeight: imageToBake.height,
+            pageNumber: _currentPage,
+>           rx: _overlayRx,
+>           ry: _overlayRy,
+>           rw: _overlayRw,
+>           rotation: _overlayRotation,
+          );
+          finalBytes = await compute(_bakeSignatureCompute, params);
+        }
+  
+        final docDir = await getApplicationDocumentsDirectory();
+        final archiveDir = Directory('${docDir.path}/archive');
+        if (!await archiveDir.exists()) {
+          await archiveDir.create(recursive: true);
+        }
+        
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final cleanName = widget.pdfName.replaceAll('.pdf', '');
+        final file = File('${archiveDir.path}/${cleanName}_signed_$timestamp.pdf');
+        await file.writeAsBytes(finalBytes);
+  
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: getStr('app_title'),
+        );
+      } catch (e) {
+          );
+        },
+      );
+    }
+  
+>   void _showTextOverlayDialog() {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) {
+          return Directionality(
+            textDirection: appLanguage.value == 'he' ? TextDirection.rtl : TextDirection.ltr,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.text_format),
+                      title: Text(getStr('free_text')),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showTextInputDialog(
+      double activeSigHeight = 0;
+      double toolbarLeft = 0;
+      double toolbarTop = 0;
+  
+      if (_signatureBytes != null && _signatureImage != null) {
+>       activeSigWidth = _overlayRw * W_page_zoomed;
+        activeSigHeight = activeSigWidth * (_signatureImage!.height / _signatureImage!.width);
+>       final double activeSigCenterX = pageStart.dx + _overlayRx * W_page_zoomed;
+>       final double activeSigCenterY = pageStart.dy + _overlayRy * H_page_zoomed;
+        activeSigLeft = activeSigCenterX - activeSigWidth / 2;
+        activeSigTop = activeSigCenterY - activeSigHeight / 2;
+  
+>       print('VISUAL OVERLAY DEBUG: rx=$_overlayRx, ry=$_overlayRy, rw=$_overlayRw, 
+activeSigCenterX=$activeSigCenterX, activeSigCenterY=$activeSigCenterY, activeSigLeft=$activeSigLeft, 
+activeSigTop=$activeSigTop, W_page_zoomed=$W_page_zoomed, H_page_zoomed=$H_page_zoomed, pageStart=$pageStart');
+  
+        // Toolbar positioning (centered horizontally above or below the signature)
+        toolbarTop = activeSigTop - 54;
+        if (toolbarTop < 10) {
+          toolbarTop = activeSigTop + activeSigHeight + 14;
+        }
+        final double screenWidth = MediaQuery.of(context).size.width;
+        toolbarLeft = (activeSigCenterX - 80).clamp(10.0, screenWidth - 170.0);
+      }
+  
+      final isRtl = appLanguage.value == 'he';
+      return Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('v2.7 | ${widget.pdfName}'),
+            actions: [
+              if (_pdfHistoryPaths.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.undo),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.text_fields),
+>               onPressed: _showTextOverlayDialog,
+                tooltip: getStr('add_text_or_date'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.gesture),
+                onPressed: _showSignatureSelectionSheet,
+                tooltip: getStr('add_signature_stamp'),
+              ),
+              if (_pdfHistoryPaths.isNotEmpty || _signatureBytes != null) ...[
+                IconButton(
+                  icon: const Icon(Icons.save),
+                  onPressed: _isProcessing ? null : _saveDocument,
+                  tooltip: getStr('save_document'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.share),
+                  onPressed: _isProcessing ? null : _saveAndShare,
+                  tooltip: getStr('share_document'),
+                ),
+              ],
+            ],
+                  );
+                },
+              ),
+            ),
+  
+>         // Active Signature Overlay (Editable)
+          if (_signatureBytes != null && _signatureImage != null)
+                  Positioned(
+                    left: activeSigLeft - 10,
+                    top: activeSigTop - 10,
+                    child: GestureDetector(
+                      onScaleStart: (details) {
+>                       _baseRw = _overlayRw;
+>                       _baseRotation = _overlayRotation;
+>                       _baseRx = _overlayRx;
+>                       _baseRy = _overlayRy;
+                        _startFocalPoint = details.focalPoint;
+                      },
+                      onScaleUpdate: (details) {
+                        setState(() {
+>                         _overlayRw = (_baseRw * details.scale).clamp(0.05, 0.9);
+>                         _overlayRotation = _baseRotation + details.rotation;
+  
+                          final Offset delta = details.focalPoint - _startFocalPoint;
+                          final double deltaRx = delta.dx / W_page_zoomed;
+                          final double deltaRy = delta.dy / H_page_zoomed;
+  
+>                         _overlayRx = (_baseRx + deltaRx).clamp(0.0, 1.0);
+>                         _overlayRy = (_baseRy + deltaRy).clamp(0.0, 1.0);
+                        });
+                      },
+                      child: Transform.rotate(
+>                       angle: _overlayRotation,
+                        child: Stack(
+                          children: [
+                            // Base container that defines Stack bounds and handles hit testing correctly
+                            Container(
+                              width: activeSigWidth + 20,
+                              height: activeSigHeight + 50,
+                              color: Colors.transparent,
+                            ),
+                            // Signature image positioned inside Stack bounds
+                            Positioned(
+                              left: 10,
+                              top: 10,
+                              child: Container(
+                                key: _activeSignatureKey,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: const Color(0xFF4F46E5), width: 1.5, style: 
+BorderStyle.solid),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+  
+                                    final double aspect = _signatureImage!.height / _signatureImage!.width;
+                                    final double w = 2 * currentDistance / sqrt(1 + aspect * aspect);
+  
+                                    setState(() {
+>                                     _overlayRw = (w / W_page_zoomed).clamp(0.05, 0.9);
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4F46E5),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          IconButton(
+                            icon: const Icon(Icons.rotate_right, color: Color(0xFF4F46E5), size: 20),
+                            tooltip: '׳¡׳•׳‘׳‘ 90ֲ°',
+                            onPressed: () {
+                              setState(() {
+>                               _overlayRotation = (_overlayRotation + pi / 2) % (2 * pi);
+                              });
+                            },
+                          ),
+                          Container(height: 16, width: 1, color: Colors.grey[300]),
+                          // Confirm
+                          IconButton(
+                            icon: const Icon(Icons.check, color: Colors.green, size: 20),
+                            tooltip: getStr('save'),
+                            onPressed: _confirmActiveSignaturePlacement,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+  
+                // Floating Page Number Indicator
+                if (_pdfPageSizes.isNotEmpty)
+                  Positioned(
+                    bottom: 24,
+                    left: 24,
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                      Positioned.fill(
+                                        child: CustomPaint(
+>                                         painter: CropOverlayPainter(
+                                            cropLeft: cropLeft,
+                                            cropTop: cropTop,
+                                            cropRight: cropRight,
+                                            cropBottom: cropBottom,
+                                            leftMargin: leftMargin,
+                                            topMargin: topMargin,
+                                            renderedW: renderedW,
+                                            renderedH: renderedH,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        // Bottom: Controls & Preview
+        ),
+      );
+    }
+  }
+  
+> class CropOverlayPainter extends CustomPainter {
+    final double cropLeft;
+    final double cropTop;
+    final double cropRight;
+    final double cropBottom;
+    final double leftMargin;
+    final double topMargin;
+    final double renderedW;
+    final double renderedH;
+  
+>   CropOverlayPainter({
+      required this.cropLeft,
+      required this.cropTop,
+      required this.cropRight,
+      required this.cropBottom,
+      required this.leftMargin,
+      required this.topMargin,
+      required this.renderedW,
+      required this.renderedH,
+    });
+  
+    @override
+    void paint(Canvas canvas, Size size) {
+      final double screenLeft = leftMargin + cropLeft * renderedW;
+      final double screenTop = topMargin + cropTop * renderedH;
+      final double screenRight = leftMargin + cropRight * renderedW;
+      final double screenBottom = topMargin + cropBottom * renderedH;
+  
+      final Paint dimPaint = Paint()..color = Colors.black54;
+  
+      canvas.drawRect(Rect.fromLTRB(0, 0, size.width, screenTop), dimPaint);
+        canvas.drawCircle(corner, radius, cornerOutlinePaint);
+      }
+    }
+  
+    @override
+>   bool shouldRepaint(covariant CropOverlayPainter oldDelegate) {
+      return oldDelegate.cropLeft != cropLeft ||
+          oldDelegate.cropTop != cropTop ||
+          oldDelegate.cropRight != cropRight ||
+          oldDelegate.cropBottom != cropBottom ||
+          oldDelegate.leftMargin != leftMargin ||
+          oldDelegate.topMargin != topMargin ||
+          oldDelegate.renderedW != renderedW ||
+          oldDelegate.renderedH != renderedH;
+    }
+  }
+  
+  class CheckerboardPainter extends CustomPainter {
+    @override
+    void paint(Canvas canvas, Size size) {
+      final paint1 = Paint()..color = const Color(0xFFE0E0E0);
+      final paint2 = Paint()..color = const Color(0xFFF5F5F5);
+      const double squareSize = 10.0;
+  
+      for (double y = 0; y < size.height; y += squareSize) {
+        for (double x = 0; x < size.width; x += squareSize) {
+
+

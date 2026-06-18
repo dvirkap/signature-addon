@@ -1,0 +1,75 @@
+﻿
+              children: [
+                // PDF Viewer wrapped in a NotificationListener to capture scroll updates
+                NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification notification) {
+                    if (notification.depth == 0 && _signatureBytes != null) {
+                      setState(() {});
+                    }
+                    return false; // Allow the scroll notification to bubble up
+                  },
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Container(
+                          key: _pdfViewerKey,
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+>                           child: SfPdfViewer.memory(
+                              currentPdfBytes,
+                              key: ValueKey('pdf_viewer_$_pdfUpdateCounter'),
+                              controller: _pdfViewerController,
+                        canShowScrollHead: false,
+                        pageLayoutMode: PdfPageLayoutMode.single,
+                        scrollDirection: PdfScrollDirection.vertical,
+                        enableTextSelection: false,
+                        enableDocumentLinkAnnotation: false,
+                        onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+                          try {
+                            final formFields = _pdfViewerController.getFormFields();
+                            for (final field in formFields) {
+                              field.readOnly = true;
+                            }
+                          } catch (e) {
+                            debugPrint('Error locking form fields: $e');
+                          }
+  
+                          final List<Size> sizes = [];
+                          final List<int> rotations = [];
+                          for (int i = 0; i < details.document.pages.count; i++) {
+                            final page = details.document.pages[i];
+                            sizes.add(Size(page.size.width, page.size.height));
+                            int rotationAngle = 0;
+                            switch (page.rotation) {
+                              case sf.PdfPageRotateAngle.rotateAngle90:
+                                rotationAngle = 90;
+                                break;
+                              case sf.PdfPageRotateAngle.rotateAngle180:
+                                rotationAngle = 180;
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(displayName),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.share),
+                onPressed: () {
+                  Share.shareXFiles([XFile(file.path)]);
+                },
+              ),
+            ],
+          ),
+          body: Directionality(
+            textDirection: TextDirection.ltr,
+>           child: SfPdfViewer.file(
+              file,
+              canShowScrollHead: false,
+              enableTextSelection: false,
+              enableDocumentLinkAnnotation: false,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+

@@ -7,6 +7,8 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     // Verify that the dashboard title is rendered.
-    expect(find.text('פשוט לחתום'), findsOneWidget);
+    expect(find.text('Just sign - פשוט לחתום'), findsOneWidget);
   });
 }
+
+

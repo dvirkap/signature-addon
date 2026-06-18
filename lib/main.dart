@@ -1457,8 +1457,6 @@ class _EditorScreenState extends State<EditorScreen> {
   ui.Image? _signatureImage;
   String? _signatureCaption;
 
-  // Pending Signatures
-  List<SignatureOverlay> _pendingSignatures = [];
 
   // Page-relative values for active signature
   double _overlayRx = 0.5; // center X (0.0 to 1.0)
@@ -1681,27 +1679,28 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _undoLastSignature() async {
-    if (_pendingSignatures.isNotEmpty) {
-      setState(() {
-        _pendingSignatures.removeLast();
-        _signatureBytes = null;
-        _signatureImage = null;
-      });
-      return;
-    }
-
     if (_pdfHistoryPaths.isEmpty) return;
     final lastPath = _pdfHistoryPaths.removeLast();
     try {
       final file = File(lastPath);
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
+        
+        double currentScrollX = 0.0;
+        double currentScrollY = 0.0;
+        try {
+          currentScrollX = _pdfViewerController.scrollOffset.dx;
+          currentScrollY = _pdfViewerController.scrollOffset.dy;
+        } catch (_) {}
+
         setState(() {
           _currentPdfBytes = bytes;
           _pdfUpdateCounter++;
           _restorePageState = true;
           _targetPage = _currentPage;
           _targetZoom = _zoomLevel;
+          _targetScrollX = currentScrollX;
+          _targetScrollY = currentScrollY;
 
           // Cancel active signature if editing
           _signatureBytes = null;
@@ -1711,49 +1710,6 @@ class _EditorScreenState extends State<EditorScreen> {
       }
     } catch (e) {
       debugPrint('Error reading/deleting history file: $e');
-    }
-  }
-
-  Future<void> _bakeAllPendingSignatures() async {
-    if (_pendingSignatures.isEmpty) return;
-    
-    setState(() => _isProcessing = true);
-    try {
-      await _pushToHistory(currentPdfBytes);
-      
-      Uint8List bytes = currentPdfBytes;
-      for (final sig in _pendingSignatures) {
-        final params = PdfBakeParams(
-          pdfBytes: bytes,
-          signatureBytes: sig.signatureBytes,
-          signatureWidth: sig.signatureWidth,
-          signatureHeight: sig.signatureHeight,
-          pageNumber: sig.pageNumber,
-          rx: sig.rx,
-          ry: sig.ry,
-          rw: sig.rw,
-          rotation: sig.rotation,
-        );
-        bytes = await compute(_bakeSignatureCompute, params);
-      }
-      
-      setState(() {
-        _currentPdfBytes = bytes;
-        _pendingSignatures.clear();
-        _pdfUpdateCounter++;
-        _restorePageState = true;
-        _targetPage = _currentPage;
-        _targetZoom = _zoomLevel;
-        _targetScrollX = _pdfViewerController.scrollOffset.dx;
-        _targetScrollY = _pdfViewerController.scrollOffset.dy;
-      });
-    } catch (e) {
-      debugPrint('Error baking pending signatures: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${getStr('error_baking')} $e')),
-      );
-    } finally {
-      setState(() => _isProcessing = false);
     }
   }
 
@@ -1767,7 +1723,7 @@ class _EditorScreenState extends State<EditorScreen> {
           child: AlertDialog(
             title: Text(getStr('pro_feature_title')),
             content: Text(appLanguage.value == 'he' 
-                ? '╫ש╫⌐ ╫£╫º╫ס╫ó ╫נ╫¬ ╫פ╫ק╫¬╫ש╫₧╫פ ╫פ╫á╫ץ╫¢╫ק╫ש╫¬ ╫£╫ñ╫á╫ש ╫פ╫₧╫ó╫ס╫¿ ╫£╫ó╫¿╫ש╫¢╫¬ ╫ף╫ñ╫ש╫¥. ╫£╫º╫ס╫ó ╫¢╫ó╫¬?'
+                ? 'יש לשים את החתימה הנוכחית לפני המעבר לעריכת דפים. לשים כעת?'
                 : 'You must place the current signature before editing pages. Place now?'),
             actions: [
               TextButton(
@@ -1788,11 +1744,6 @@ class _EditorScreenState extends State<EditorScreen> {
       } else {
         return; // cancel opening editor
       }
-    }
-
-    // Bake all pending signatures before passing to PageEditorScreen
-    if (_pendingSignatures.isNotEmpty) {
-      await _bakeAllPendingSignatures();
     }
 
     // 2. Open PageEditorScreen
@@ -1838,23 +1789,38 @@ class _EditorScreenState extends State<EditorScreen> {
         imageToBake = frame.image;
       }
 
+      final params = PdfBakeParams(
+        pdfBytes: currentPdfBytes,
+        signatureBytes: bytesToBake,
+        signatureWidth: imageToBake.width,
+        signatureHeight: imageToBake.height,
+        pageNumber: _currentPage,
+        rx: _overlayRx,
+        ry: _overlayRy,
+        rw: _overlayRw,
+        rotation: _overlayRotation,
+      );
+
+      final bakedBytes = await compute(_bakeSignatureCompute, params);
+
+      // Save old state to history
+      await _pushToHistory(currentPdfBytes);
+
       setState(() {
-        _pendingSignatures.add(SignatureOverlay(
-          signatureBytes: bytesToBake,
-          signatureWidth: imageToBake.width,
-          signatureHeight: imageToBake.height,
-          pageNumber: _currentPage,
-          rx: _overlayRx,
-          ry: _overlayRy,
-          rw: _overlayRw,
-          rotation: _overlayRotation,
-          image: imageToBake,
-        ));
+        _currentPdfBytes = bakedBytes;
+        _pdfUpdateCounter++;
 
         // Reset active editing signature
         _signatureBytes = null;
         _signatureImage = null;
         _signatureCaption = null;
+
+        // Save target zoom/scroll position for restoration
+        _targetPage = _currentPage;
+        _targetZoom = _zoomLevel;
+        _targetScrollX = _pdfViewerController.scrollOffset.dx;
+        _targetScrollY = _pdfViewerController.scrollOffset.dy;
+        _restorePageState = true;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2000,10 +1966,6 @@ class _EditorScreenState extends State<EditorScreen> {
         await _confirmActiveSignaturePlacement();
       }
 
-      if (_pendingSignatures.isNotEmpty) {
-        await _bakeAllPendingSignatures();
-      }
-
       Uint8List finalBytes = currentPdfBytes;
 
       // Save to internal archive
@@ -2081,10 +2043,6 @@ class _EditorScreenState extends State<EditorScreen> {
       // If there's an active signature editing, bake it now
       if (_signatureBytes != null && _signatureImage != null) {
         await _confirmActiveSignaturePlacement();
-      }
-
-      if (_pendingSignatures.isNotEmpty) {
-        await _bakeAllPendingSignatures();
       }
 
       Uint8List finalBytes = currentPdfBytes;
@@ -2495,7 +2453,7 @@ class _EditorScreenState extends State<EditorScreen> {
                             currentPdfBytes,
                             key: ValueKey('pdf_viewer_$_pdfUpdateCounter'),
                             controller: _pdfViewerController,
-                            initialScrollOffset: Offset(_targetScrollX ?? 0, _targetScrollY ?? 0),
+                            initialScrollOffset: Offset(0, _targetScrollY ?? 0),
                             initialZoomLevel: _targetZoom > 0 ? _targetZoom : 1.0,
                       canShowScrollHead: false,
                       pageLayoutMode: PdfPageLayoutMode.single,
@@ -2540,6 +2498,25 @@ class _EditorScreenState extends State<EditorScreen> {
 
                         if (_restorePageState) {
                           _restorePageState = false;
+                          if (_targetScrollX != null && _targetScrollY != null) {
+                            final double zoom = _targetZoom;
+                            final double x = _targetScrollX!;
+                            final double y = _targetScrollY!;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) {
+                                _pdfViewerController.zoomLevel = zoom;
+                                int count = 0;
+                                Timer.periodic(const Duration(milliseconds: 30), (timer) {
+                                  if (!mounted || count >= 15) {
+                                    timer.cancel();
+                                    return;
+                                  }
+                                  _pdfViewerController.jumpTo(xOffset: x, yOffset: y);
+                                  count++;
+                                });
+                              }
+                            });
+                          }
                         }
                       },
                       onZoomLevelChanged: (PdfZoomDetails details) {
@@ -2549,10 +2526,12 @@ class _EditorScreenState extends State<EditorScreen> {
                         }
                       },
                       onPageChanged: (PdfPageChangedDetails details) {
-                        setState(() {
-                          _currentPage = details.newPageNumber;
-                          _zoomLevel = 1.0;
-                        });
+                        if (_currentPage != details.newPageNumber) {
+                          setState(() {
+                            _currentPage = details.newPageNumber;
+                            _zoomLevel = 1.0;
+                          });
+                        }
                       },
                     ),
                   ),
@@ -2560,32 +2539,6 @@ class _EditorScreenState extends State<EditorScreen> {
               },
             ),
           ),
-
-        // Pending Signatures (Baked-in preview)
-        ..._pendingSignatures.where((sig) => sig.pageNumber == _currentPage).map((sig) {
-          final double sigWidth = sig.rw * W_page_zoomed;
-          final double sigHeight = sigWidth * (sig.signatureHeight / sig.signatureWidth);
-          final double sigCenterX = pageStart.dx + sig.rx * W_page_zoomed;
-          final double sigCenterY = pageStart.dy + sig.ry * H_page_zoomed;
-          final double sigLeft = sigCenterX - sigWidth / 2;
-          final double sigTop = sigCenterY - sigHeight / 2;
-
-          return Positioned(
-            left: sigLeft,
-            top: sigTop,
-            child: IgnorePointer( // Prevent pending signatures from absorbing gestures
-              child: Transform.rotate(
-                angle: sig.rotation,
-                child: Image.memory(
-                  sig.signatureBytes,
-                  width: sigWidth,
-                  height: sigHeight,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          );
-        }),
 
         // Active Signature Overlay (Editable)
         if (_signatureBytes != null && _signatureImage != null)

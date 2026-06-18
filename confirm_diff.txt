@@ -1,0 +1,154 @@
+﻿
+  +          ),
+  +        ),
+  +      );
+  +      
+  +      if (confirmBake == true) {
+> +        await _confirmActiveSignaturePlacement();
+  +      } else {
+  +        return; // cancel opening editor
+  +      }
+  +    }
+   
+       // Bake all pending signatures before passing to PageEditorScreen
+       if (_pendingSignatures.isNotEmpty) {
+  @@ -1713,7 +1822,41 @@ class _EditorScreenState extends State<EditorScreen> {
+       }
+     }
+   
+  -   catch (e) {
+> +  Future<void> _confirmActiveSignaturePlacement() async {
+  +    if (_signatureBytes == null || _signatureImage == null) return;
+  +
+  +    setState(() => _isProcessing = true);
+  +
+  +    try {
+  +      Uint8List bytesToBake = _signatureBytes!;
+  +      ui.Image imageToBake = _signatureImage!;
+  +
+  +      if (_signatureCaption != null && _signatureCaption!.isNotEmpty) {
+  +        bytesToBake = await _combineSignatureAndCaption(_signatureBytes!, _signatureCaption!);
+  +        final codec = await ui.instantiateImageCodec(bytesToBake);
+  +        final frame = await codec.getNextFrame();
+  +        imageToBake = frame.image;
+  +      }
+  +
+  +      setState(() {
+  +        _pendingSignatures.add(SignatureOverlay(
+  +          signatureBytes: bytesToBake,
+  +          signatureWidth: imageToBake.width,
+  +          signatureHeight: imageToBake.height,
+  +          pageNumber: _currentPage,
+  +          rx: _overlayRx,
+  +          ry: _overlayRy,
+  +          rw: _overlayRw,
+  +          rotation: _overlayRotation,
+  +          image: imageToBake,
+  +        ));
+  +
+  +        // Reset active editing signature
+  +        _signatureBytes = null;
+  +        _signatureImage = null;
+  +        _signatureCaption = null;
+  +      });
+  +    } catch (e) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('${getStr('error_baking')} $e')),
+         );
+  @@ -1852,33 +1995,17 @@ class _EditorScreenState extends State<EditorScreen> {
+       setState(() => _isProcessing = true);
+   
+  -          bytesToBake = await _combineSignatureAndCaption(_signatureBytes!, _signatureCaption!);
+  -          final codec = await ui.instantiateImageCodec(bytesToBake);
+  -          final frame = await codec.getNextFrame();
+  -          imageToBake = frame.image;
+  -        }
+> +        await _confirmActiveSignaturePlacement();
+  +      }
+   
+  -        final params = PdfBakeParams(
+  -          pdfBytes: finalBytes,
+  -          signatureBytes: bytesToBake,
+  -          signatureWidth: imageToBake.width,
+  -          signatureHeight: imageToBake.height,
+  -          pageNumber: _currentPage,
+  -          rx: _overlayRx,
+  -          ry: _overlayRy,
+  -          rw: _overlayRw,
+  -          rotation: _overlayRotation,
+  -        );
+  -        finalBytes = await compute(_bakeSignatureCompute, params);
+  +      if (_pendingSignatures.isNotEmpty) {
+  +        await _bakeAllPendingSignatures();
+         }
+   
+  +      Uint8List finalBytes = currentPdfBytes;
+  +
+         // Save to internal archive
+         final docDir = await getApplicationDocumentsDirectory();
+         final archiveDir = Directory('${docDir.path}/archive');
+  @@ -1930,7 +2057,7 @@ class _EditorScreenState extends State<EditorScreen> {
+   
+         if (savedSuccessfully) {
+           final successMsg = appLanguage.value == 'he'
+  -            ? 'המסמך נשמר בהצלחה ב-$targetDirPath'
+  +            ? '╫פ╫₧╫í╫₧╫ת ╫á╫⌐╫₧╫¿ ╫ס╫פ╫ª╫£╫ק╫פ ╫ס-$targetDirPath'
+               : 'Document saved successfully to $targetDirPath';
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(
+  @@ -1941,7 +2068,7 @@ class _EditorScreenState extends State<EditorScreen> {
+           Navigator.of(context).pop(); // Return to dashboard
+         }
+       } catch (e) {
+  -      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('שגיאה: $e')));
+  +      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ: $e')));
+       } finally {
+         setState(() => _isProcessing = false);
+  -          bytesToBake = await _combineSignatureAndCaption(_signatureBytes!, _signatureCaption!);
+  -          final codec = await ui.instantiateImageCodec(bytesToBake);
+  -          final frame = await codec.getNextFrame();
+  -          imageToBake = frame.image;
+  -        }
+> +        await _confirmActiveSignaturePlacement();
+  +      }
+   
+  -        final params = PdfBakeParams(
+  -          pdfBytes: finalBytes,
+  -          signatureBytes: bytesToBake,
+  -          signatureWidth: imageToBake.width,
+  -          signatureHeight: imageToBake.height,
+  -          pageNumber: _currentPage,
+  -          rx: _overlayRx,
+  -          ry: _overlayRy,
+  -          rw: _overlayRw,
+  -          rotation: _overlayRotation,
+  -        );
+  -        finalBytes = await compute(_bakeSignatureCompute, params);
+  +      if (_pendingSignatures.isNotEmpty) {
+  +        await _bakeAllPendingSignatures();
+         }
+   
+  +      Uint8List finalBytes = currentPdfBytes;
+  +
+         final docDir = await getApplicationDocumentsDirectory();
+         final archiveDir = Directory('${docDir.path}/archive');
+         if (!await archiveDir.exists()) {
+  @@ -1994,7 +2105,7 @@ class _EditorScreenState extends State<EditorScreen> {
+           text: getStr('app_title'),
+         );
+       } catch (e) {
+  -      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('שגיאה: $e')));
+  +      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ: $e')));
+       } finally {
+         setState(() => _isProcessing = false);
+       }
+  @@ -2312,7 +2423,7 @@ class _EditorScreenState extends State<EditorScreen> {
+         textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+         child: Scaffold(
+           appBar: AppBar(
+  -          title: Text('v2.7 | ${widget.pdfName}'),
+  +          title: Text('v2.9 | ${widget.pdfName}'),
+             actions: [
+               if (_pdfHistoryPaths.isNotEmpty)
+
+

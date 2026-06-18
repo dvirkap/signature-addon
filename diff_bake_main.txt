@@ -1,0 +1,130 @@
+﻿
+> Uint8List _bakeSignatureCompute(PdfBakeParams params) {
+    final document = sf.PdfDocument(inputBytes: params.pdfBytes);
+    final pageNumber = params.pageNumber;
+  
+    if (pageNumber > 0 && pageNumber <= document.pages.count) {
+      final page = document.pages[pageNumber - 1];
+  
+      final double pdfWidth = page.size.width;
+      final double pdfHeight = page.size.height;
+  
+      // Detect page rotation
+      int pageRotationDegrees = 0;
+      switch (page.rotation) {
+        case sf.PdfPageRotateAngle.rotateAngle0:
+          pageRotationDegrees = 0;
+          break;
+        case sf.PdfPageRotateAngle.rotateAngle90:
+          pageRotationDegrees = 90;
+          break;
+        case sf.PdfPageRotateAngle.rotateAngle180:
+          pageRotationDegrees = 180;
+          break;
+        case sf.PdfPageRotateAngle.rotateAngle270:
+          pageRotationDegrees = 270;
+          break;
+      }
+  
+      final bool isRotated90or270 = pageRotationDegrees == 90 || pageRotationDegrees == 270;
+      final double visualWidth = isRotated90or270 ? pdfHeight : pdfWidth;
+      final double visualHeight = isRotated90or270 ? pdfWidth : pdfHeight;
+  
+      final double visualCenterX = params.rx * visualWidth;
+      final double visualCenterY = params.ry * visualHeight;
+  
+      final double visualSigWidth = params.rw * visualWidth;
+      final double visualSigHeight = visualSigWidth * (params.signatureHeight / params.signatureWidth);
+  
+      double pdfCenterX = visualCenterX;
+      double pdfCenterY = visualCenterY;
+      double angleInDegrees = (params.rotation * 180 / pi);
+  
+      if (pageRotationDegrees == 90) {
+        pdfCenterX = visualCenterY;
+        pdfCenterY = pdfHeight - visualCenterX;
+        angleInDegrees = angleInDegrees - 90;
+      } else if (pageRotationDegrees == 180) {
+        pdfCenterX = pdfWidth - visualCenterX;
+        pdfCenterY = pdfHeight - visualCenterY;
+        angleInDegrees = angleInDegrees - 180;
+      } else if (pageRotationDegrees == 270) {
+        pdfCenterX = pdfWidth - visualCenterY;
+        pdfCenterY = visualCenterX;
+        angleInDegrees = angleInDegrees - 270;
+      }
+  
+      print('ISOLATE BAKE DEBUG: pdfSize=${page.size.width}x${page.size.height}, 
+pageRotationDegrees=$pageRotationDegrees, visualWidth=$visualWidth, visualHeight=$visualHeight, rx=${params.rx}, 
+ry=${params.ry}, visualCenterX=$visualCenterX, visualCenterY=$visualCenterY, pdfCenterX=$pdfCenterX, 
+pdfCenterY=$pdfCenterY, rotation=${params.rotation}, angleInDegrees=$angleInDegrees');
+  
+      final sf.PdfBitmap image = sf.PdfBitmap(params.signatureBytes);
+  
+      page.graphics.save();
+      page.graphics.translateTransform(pdfCenterX, pdfCenterY);
+>         bytes = await compute(_bakeSignatureCompute, params);
+        }
+        
+        setState(() {
+          _currentPdfBytes = bytes;
+          _pendingSignatures.clear();
+          _pdfUpdateCounter++;
+          _restorePageState = true;
+          _targetPage = _currentPage;
+          _targetZoom = _zoomLevel;
+          _targetScrollX = _pdfViewerController.scrollOffset.dx;
+          _targetScrollY = _pdfViewerController.scrollOffset.dy;
+        });
+      } catch (e) {
+        debugPrint('Error baking pending signatures: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${getStr('error_baking')} $e')),
+        );
+      } finally {
+        setState(() => _isProcessing = false);
+      }
+    }
+  
+    Future<void> _openPageEditor(BuildContext context) async {
+      // 1. If there's an active signature overlay, warn or bake it first!
+      if (_signatureBytes != null && _signatureImage != null) {
+        final confirmBake = await showDialog<bool>(
+          context: context,
+          builder: (context) => Directionality(
+            textDirection: appLanguage.value == 'he' ? TextDirection.rtl : TextDirection.ltr,
+            child: AlertDialog(
+              title: Text(getStr('pro_feature_title')),
+              content: Text(appLanguage.value == 'he' 
+                  ? 'ג•«׳©ג•«ג ג•«ֲ£ג•«ֲ÷ג•«׳¡ג•«ֳ³ ג•«׳ג•«ֲ¬ ג•«׳₪ג•«׳§ג•«ֲ¬ג•«׳©ג•«ג‚§ג•«׳₪ 
+ג•«׳₪ג•«ֳ¡ג•«׳¥ג•«ֲ¢ג•«׳§ג•«׳©ג•«ֲ¬ ג•«ֲ£ג•«ֳ±ג•«ֳ¡ג•«׳© ג•«׳₪ג•«ג‚§ג•«ֳ³ג•«׳¡ג•«ֲ¿ ג•«ֲ£ג•«ֳ³ג•«ֲ¿ג•«׳©ג•«ֲ¢ג•«ֲ¬ 
+ג•«׳£ג•«ֳ±ג•«׳©ג•«ֲ¥. ג•«ֲ£ג•«ֲ÷ג•«׳¡ג•«ֳ³ ג•«ֲ¢ג•«ֳ³ג•«ֲ¬?'
+                  : 'You must place the current signature before editing pages. Place now?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(getStr('cancel')),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(getStr('save')),
+                ),
+              ],
+            ),
+          ),
+        );
+        
+        if (confirmBake == true) {
+          await _confirmActiveSignaturePlacement();
+        } else {
+          return; // cancel opening editor
+        }
+      }
+  
+      // Bake all pending signatures before passing to PageEditorScreen
+      if (_pendingSignatures.isNotEmpty) {
+        await _bakeAllPendingSignatures();
+      }
+  
+
+
