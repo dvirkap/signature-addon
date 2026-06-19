@@ -80,6 +80,7 @@ final Map<String, String> appSupportedLanguages = {
 
 const Map<String, Map<String, String>> localizedValues = {
   'af': {
+    "recent_documents": "Onlangse dokumente",
     "app_title": "Teken net",
     "dashboard_title": "Teken net",
     "about_title": "Oor App",
@@ -147,6 +148,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Engels",
   },
   'am': {
+    "recent_documents": "የቅርብ ጊዜ ሰነዶች",
     "app_title": "ብቻ ይፈርሙ",
     "dashboard_title": "ብቻ ይፈርሙ",
     "about_title": "ስለ መተግበሪያ",
@@ -214,6 +216,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "እንግሊዝኛ",
   },
   'ar': {
+    "recent_documents": "المستندات الأخيرة",
     "app_title": "فقط قم بالتوقيع",
     "dashboard_title": "فقط قم بالتوقيع",
     "about_title": "حول التطبيق",
@@ -281,6 +284,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "إنجليزي",
   },
   'az': {
+    "recent_documents": "Son sənədlər",
     "app_title": "Sadəcə imzala",
     "dashboard_title": "Sadəcə imzala",
     "about_title": "Tətbiq haqqında",
@@ -348,6 +352,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "İngilis dili",
   },
   'be': {
+    "recent_documents": "Нядаўнія дакументы",
     "app_title": "Проста падпішыце",
     "dashboard_title": "Проста падпішыце",
     "about_title": "Аб дадатку",
@@ -415,6 +420,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "англійская",
   },
   'bg': {
+    "recent_documents": "Скорошни документи",
     "app_title": "Просто подпишете",
     "dashboard_title": "Просто подпишете",
     "about_title": "Относно приложението",
@@ -482,6 +488,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "английски",
   },
   'bn': {
+    "recent_documents": "সাম্প্রতিক নথি",
     "app_title": "শুধু স্বাক্ষর করুন",
     "dashboard_title": "শুধু স্বাক্ষর করুন",
     "about_title": "অ্যাপ সম্পর্কে",
@@ -549,6 +556,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ইংরেজি",
   },
   'bs': {
+    "recent_documents": "Nedavni dokumenti",
     "app_title": "Samo potpiši",
     "dashboard_title": "Samo potpiši",
     "about_title": "O aplikaciji",
@@ -616,6 +624,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "engleski",
   },
   'ca': {
+    "recent_documents": "Documents recents",
     "app_title": "Només signar",
     "dashboard_title": "Només signar",
     "about_title": "Sobre l\'aplicació",
@@ -683,6 +692,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Anglès",
   },
   'cs': {
+    "recent_documents": "Nedávné dokumenty",
     "app_title": "Stačí podepsat",
     "dashboard_title": "Stačí podepsat",
     "about_title": "O aplikaci",
@@ -750,6 +760,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "angličtina",
   },
   'cy': {
+    "recent_documents": "Dogfennau Diweddar",
     "app_title": "Dim ond arwyddo",
     "dashboard_title": "Dim ond arwyddo",
     "about_title": "Am Ap",
@@ -817,6 +828,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Saesneg",
   },
   'da': {
+    "recent_documents": "Seneste dokumenter",
     "app_title": "Bare underskriv",
     "dashboard_title": "Bare underskriv",
     "about_title": "Om App",
@@ -884,6 +896,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "engelsk",
   },
   'de': {
+    "recent_documents": "Letzte Dokumente",
     "app_title": "Unterschreiben Sie einfach",
     "dashboard_title": "Unterschreiben Sie einfach",
     "about_title": "Über App",
@@ -951,6 +964,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Englisch",
   },
   'el': {
+    "recent_documents": "Πρόσφατα έγγραφα",
     "app_title": "Απλά υπογράψτε",
     "dashboard_title": "Απλά υπογράψτε",
     "about_title": "Σχετικά με την εφαρμογή",
@@ -1018,6 +1032,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "αγγλικός",
   },
   'en': {
+    "recent_documents": "Recent Documents",
     "app_title": "Just sign",
     "save_document": "Save Document",
     "share_document": "Share Document",
@@ -1118,6 +1133,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "version_changelog_1_0_0": "• Initial release.\n• PDF signing and page navigation.\n• Add customized text and current date to documents.\n• Manage multiple signatures and company stamps.\n• Local signed documents archive with delete and share options.",
   },
   'eo': {
+    "recent_documents": "Lastatempaj dokumentoj",
     "app_title": "Nur subskribu",
     "dashboard_title": "Nur subskribu",
     "about_title": "Pri Apo",
@@ -1185,6 +1201,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "la angla",
   },
   'es': {
+    "recent_documents": "Documentos recientes",
     "app_title": "solo firma",
     "dashboard_title": "solo firma",
     "about_title": "Acerca de la aplicación",
@@ -1252,6 +1269,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Inglés",
   },
   'et': {
+    "recent_documents": "Viimased dokumendid",
     "app_title": "Lihtsalt kirjutage alla",
     "dashboard_title": "Lihtsalt kirjutage alla",
     "about_title": "Teave rakenduse kohta",
@@ -1319,6 +1337,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "inglise keel",
   },
   'eu': {
+    "recent_documents": "Azken dokumentuak",
     "app_title": "Sinatu besterik ez",
     "dashboard_title": "Sinatu besterik ez",
     "about_title": "Aplikazioari buruz",
@@ -1386,6 +1405,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ingelesa",
   },
   'fa': {
+    "recent_documents": "اسناد اخیر",
     "app_title": "فقط امضا کن",
     "dashboard_title": "فقط امضا کن",
     "about_title": "درباره برنامه",
@@ -1453,6 +1473,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "انگلیسی",
   },
   'fi': {
+    "recent_documents": "Viimeisimmät asiakirjat",
     "app_title": "Allekirjoita vain",
     "dashboard_title": "Allekirjoita vain",
     "about_title": "Tietoja App",
@@ -1520,6 +1541,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "englanti",
   },
   'fr': {
+    "recent_documents": "Documents récents",
     "app_title": "Il suffit de signer",
     "dashboard_title": "Il suffit de signer",
     "about_title": "À propos de l\'application",
@@ -1587,6 +1609,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Anglais",
   },
   'ga': {
+    "recent_documents": "Doiciméid le Déanaí",
     "app_title": "Just a shíniú",
     "dashboard_title": "Just a shíniú",
     "about_title": "Maidir le App",
@@ -1654,6 +1677,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Béarla",
   },
   'gl': {
+    "recent_documents": "Documentos recentes",
     "app_title": "Só asinar",
     "dashboard_title": "Só asinar",
     "about_title": "Sobre a aplicación",
@@ -1721,6 +1745,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "inglés",
   },
   'gu': {
+    "recent_documents": "તાજેતરના દસ્તાવેજો",
     "app_title": "ફક્ત સહી કરો",
     "dashboard_title": "ફક્ત સહી કરો",
     "about_title": "એપ્લિકેશન વિશે",
@@ -1788,6 +1813,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "અંગ્રેજી",
   },
   'he': {
+    "recent_documents": "מסמכים אחרונים",
     "app_title": "פשוט לחתום",
     "save_document": "שמור מסמך",
     "share_document": "שתף מסמך",
@@ -1888,6 +1914,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "version_changelog_1_0_0": "• גרסה ראשונית.\n• חתימה על קבצי PDF ומעבר בין עמודים.\n• הוספת טקסט חופשי ותאריך נוכחי למסמך.\n• שמירה וניהול של מספר חתימות וחותמות.\n• ארכיון מסמכים חתומים מקומי עם אפשרות מחיקה ושיתוף.",
   },
   'hi': {
+    "recent_documents": "हाल के दस्तावेज़",
     "app_title": "बस हस्ताक्षर करें",
     "dashboard_title": "बस हस्ताक्षर करें",
     "about_title": "ऐप के बारे में",
@@ -1955,6 +1982,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "अंग्रेज़ी",
   },
   'hr': {
+    "recent_documents": "Nedavni dokumenti",
     "app_title": "Samo potpiši",
     "dashboard_title": "Samo potpiši",
     "about_title": "O aplikaciji",
@@ -2022,6 +2050,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "engleski",
   },
   'hu': {
+    "recent_documents": "Legutóbbi dokumentumok",
     "app_title": "Csak írja alá",
     "dashboard_title": "Csak írja alá",
     "about_title": "Az alkalmazásról",
@@ -2089,6 +2118,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "angol",
   },
   'hy': {
+    "recent_documents": "Վերջին փաստาթղթերը",
     "app_title": "Պարզապես ստորագրեք",
     "dashboard_title": "Պարզապես ստորագրեք",
     "about_title": "App-ի մասին",
@@ -2156,6 +2186,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Անգլերեն",
   },
   'id': {
+    "recent_documents": "Dokumen baru-baru ini",
     "app_title": "Tanda tangani saja",
     "dashboard_title": "Tanda tangani saja",
     "about_title": "Tentang Aplikasi",
@@ -2223,6 +2254,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Bahasa inggris",
   },
   'is': {
+    "recent_documents": "Nýleg skjöl",
     "app_title": "Skrifaðu bara undir",
     "dashboard_title": "Skrifaðu bara undir",
     "about_title": "Um App",
@@ -2290,6 +2322,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ensku",
   },
   'it': {
+    "recent_documents": "Documenti recenti",
     "app_title": "Basta firmare",
     "dashboard_title": "Basta firmare",
     "about_title": "Informazioni sull\'app",
@@ -2357,6 +2390,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Inglese",
   },
   'ja': {
+    "recent_documents": "最近のドキュメント",
     "app_title": "署名するだけ",
     "dashboard_title": "署名するだけ",
     "about_title": "アプリについて",
@@ -2424,6 +2458,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "英語",
   },
   'ka': {
+    "recent_documents": "ბოლო დოკუმენტები",
     "app_title": "უბრალოდ მოაწერე ხელი",
     "dashboard_title": "უბრალოდ მოაწერე ხელი",
     "about_title": "აპლიკაციის შესახებ",
@@ -2491,6 +2526,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ინგლისური",
   },
   'kk': {
+    "recent_documents": "Соңғы құжаттар",
     "app_title": "Тек қол қойыңыз",
     "dashboard_title": "Тек қол қойыңыз",
     "about_title": "Қолданба туралы",
@@ -2558,6 +2594,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Ағылшын",
   },
   'kn': {
+    "recent_documents": "ಇತ್ತೀಚಿನ ದಾಖಲೆಗಳು",
     "app_title": "ಸುಮ್ಮನೆ ಸಹಿ ಮಾಡಿ",
     "dashboard_title": "ಸುಮ್ಮನೆ ಸಹಿ ಮಾಡಿ",
     "about_title": "ಅಪ್ಲಿಕೇಶನ್ ಬಗ್ಗೆ",
@@ -2625,6 +2662,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ಇಂಗ್ಲೀಷ್",
   },
   'ko': {
+    "recent_documents": "최근 문서",
     "app_title": "그냥 서명하세요",
     "dashboard_title": "그냥 서명하세요",
     "about_title": "앱 소개",
@@ -2692,6 +2730,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "영어",
   },
   'ky': {
+    "recent_documents": "Акыркы документтер",
     "app_title": "Жөн эле кол кой",
     "dashboard_title": "Жөн эле кол кой",
     "about_title": "Колдонмо жөнүндө",
@@ -2759,6 +2798,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Англисче",
   },
   'la': {
+    "recent_documents": "Documenta recentia",
     "app_title": "Sicut signum",
     "dashboard_title": "Sicut signum",
     "about_title": "De App",
@@ -2826,6 +2866,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Anglicus",
   },
   'lt': {
+    "recent_documents": "Naujausi dokumentai",
     "app_title": "Tiesiog pasirašykite",
     "dashboard_title": "Tiesiog pasirašykite",
     "about_title": "Apie programą",
@@ -2893,6 +2934,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "anglų kalba",
   },
   'lv': {
+    "recent_documents": "Nesenie dokumenti",
     "app_title": "Vienkārši parakstieties",
     "dashboard_title": "Vienkārši parakstieties",
     "about_title": "Par lietotni",
@@ -2960,6 +3002,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "angļu valoda",
   },
   'mk': {
+    "recent_documents": "Неодамнешни документи",
     "app_title": "Само потпишете",
     "dashboard_title": "Само потпишете",
     "about_title": "За апликацијата",
@@ -3027,6 +3070,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Англиски јазик",
   },
   'ml': {
+    "recent_documents": "സമീപകാല രേഖകൾ",
     "app_title": "ഒപ്പിട്ടാൽ മതി",
     "dashboard_title": "ഒപ്പിട്ടാൽ മതി",
     "about_title": "ആപ്പിനെക്കുറിച്ച്",
@@ -3094,6 +3138,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ഇംഗ്ലീഷ്",
   },
   'mn': {
+    "recent_documents": "Сүүлийн үеийн баримт бичиг",
     "app_title": "Зүгээр л гарын үсэг зур",
     "dashboard_title": "Зүгээр л гарын үсэг зур",
     "about_title": "Аппликэйшний тухай",
@@ -3161,6 +3206,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Англи",
   },
   'mr': {
+    "recent_documents": "अलीकडील दस्तऐवज",
     "app_title": "फक्त सही करा",
     "dashboard_title": "फक्त सही करा",
     "about_title": "ॲप बद्दल",
@@ -3228,6 +3274,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "इंग्रजी",
   },
   'ms': {
+    "recent_documents": "Dokumen terkini",
     "app_title": "Hanya tandatangan",
     "dashboard_title": "Hanya tandatangan",
     "about_title": "Perihal App",
@@ -3295,6 +3342,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Inggeris",
   },
   'ne': {
+    "recent_documents": "भर्खरका कागजातहरू",
     "app_title": "मात्र हस्ताक्षर गर्नुहोस्",
     "dashboard_title": "मात्र हस्ताक्षर गर्नुहोस्",
     "about_title": "एपको बारेमा",
@@ -3362,6 +3410,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "अंग्रेजी",
   },
   'nl': {
+    "recent_documents": "Recente documenten",
     "app_title": "Teken gewoon",
     "dashboard_title": "Teken gewoon",
     "about_title": "Over app",
@@ -3429,6 +3478,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Engels",
   },
   'no': {
+    "recent_documents": "Nylige dokumenter",
     "app_title": "Bare signer",
     "dashboard_title": "Bare signer",
     "about_title": "Om App",
@@ -3496,6 +3546,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "engelsk",
   },
   'pa': {
+    "recent_documents": "ਹਾਲ ਹੀ ਦੇ ਦਸਤਾਵੇਜ਼",
     "app_title": "ਬਸ ਦਸਤਖਤ ਕਰੋ",
     "dashboard_title": "ਬਸ ਦਸਤਖਤ ਕਰੋ",
     "about_title": "ਐਪ ਬਾਰੇ",
@@ -3563,6 +3614,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ਅੰਗਰੇਜ਼ੀ",
   },
   'pl': {
+    "recent_documents": "Ostatnie dokumenty",
     "app_title": "Po prostu podpisz",
     "dashboard_title": "Po prostu podpisz",
     "about_title": "O aplikacji",
@@ -3630,6 +3682,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "angielski",
   },
   'pt': {
+    "recent_documents": "Documentos recentes",
     "app_title": "Basta assinar",
     "dashboard_title": "Basta assinar",
     "about_title": "Sobre o aplicativo",
@@ -3697,6 +3750,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Inglês",
   },
   'ro': {
+    "recent_documents": "Documente recente",
     "app_title": "Doar semnează",
     "dashboard_title": "Doar semnează",
     "about_title": "Despre aplicație",
@@ -3764,6 +3818,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "engleză",
   },
   'ru': {
+    "recent_documents": "Недавние документы",
     "app_title": "Просто подпишите",
     "dashboard_title": "Просто подпишите",
     "about_title": "О приложении",
@@ -3831,6 +3886,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Английский",
   },
   'si': {
+    "recent_documents": "මෑත ලිපි ලේඛන",
     "app_title": "අත්සන් කරන්න විතරයි",
     "dashboard_title": "අත්සන් කරන්න විතරයි",
     "about_title": "යෙදුම ගැන",
@@ -3898,6 +3954,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ඉංග්රීසි",
   },
   'sk': {
+    "recent_documents": "Nedávne dokumenty",
     "app_title": "Stačí podpísať",
     "dashboard_title": "Stačí podpísať",
     "about_title": "O aplikácii",
@@ -3965,6 +4022,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "angličtina",
   },
   'sl': {
+    "recent_documents": "Nedavni dokumenti",
     "app_title": "Samo podpišite",
     "dashboard_title": "Samo podpišite",
     "about_title": "O aplikaciji",
@@ -4032,6 +4090,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "angleščina",
   },
   'sq': {
+    "recent_documents": "Dokumentet e fundit",
     "app_title": "Vetëm nënshkruani",
     "dashboard_title": "Vetëm nënshkruani",
     "about_title": "Rreth aplikacionit",
@@ -4099,6 +4158,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "anglisht",
   },
   'sr': {
+    "recent_documents": "Недавна документа",
     "app_title": "Само потпиши",
     "dashboard_title": "Само потпиши",
     "about_title": "О апликацији",
@@ -4166,6 +4226,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "енглески",
   },
   'sv': {
+    "recent_documents": "Senaste dokument",
     "app_title": "Skriv bara under",
     "dashboard_title": "Skriv bara under",
     "about_title": "Om App",
@@ -4233,6 +4294,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "engelska",
   },
   'sw': {
+    "recent_documents": "Nyaraka za hivi karibuni",
     "app_title": "Saini tu",
     "dashboard_title": "Saini tu",
     "about_title": "Kuhusu Programu",
@@ -4300,6 +4362,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Kiingereza",
   },
   'ta': {
+    "recent_documents": "சமீபத்திய ஆவணங்கள்",
     "app_title": "வெறும் கையெழுத்து",
     "dashboard_title": "வெறும் கையெழுத்து",
     "about_title": "ஆப் பற்றி",
@@ -4367,6 +4430,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ஆங்கிலம்",
   },
   'te': {
+    "recent_documents": "ఇటీవలి పత్రాలు",
     "app_title": "కేవలం సంతకం చేయండి",
     "dashboard_title": "కేవలం సంతకం చేయండి",
     "about_title": "యాప్ గురించి",
@@ -4434,6 +4498,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ఇంగ్లీష్",
   },
   'tg': {
+    "recent_documents": "Ҳуҷҷатҳои охирин",
     "app_title": "Танҳо имзо кунед",
     "dashboard_title": "Танҳо имзо кунед",
     "about_title": "Дар бораи Барнома",
@@ -4501,6 +4566,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "англисӣ",
   },
   'th': {
+    "recent_documents": "เอกสารล่าสุด",
     "app_title": "แค่ลงชื่อ.",
     "dashboard_title": "แค่ลงชื่อ.",
     "about_title": "เกี่ยวกับแอพ",
@@ -4568,6 +4634,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "ภาษาอังกฤษ",
   },
   'tl': {
+    "recent_documents": "Mga Kamakailang Dokumento",
     "app_title": "Pumirma lang",
     "dashboard_title": "Pumirma lang",
     "about_title": "Tungkol sa App",
@@ -4635,6 +4702,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Ingles",
   },
   'tr': {
+    "recent_documents": "Son Belgeler",
     "app_title": "Sadece imzala",
     "dashboard_title": "Sadece imzala",
     "about_title": "Uygulama Hakkında",
@@ -4702,6 +4770,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "İngilizce",
   },
   'uk': {
+    "recent_documents": "Останні документи",
     "app_title": "Просто підпиши",
     "dashboard_title": "Просто підпиши",
     "about_title": "Про додаток",
@@ -4769,6 +4838,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "англійська",
   },
   'ur': {
+    "recent_documents": "حالیہ دستاویزات",
     "app_title": "صرف دستخط کریں۔",
     "dashboard_title": "صرف دستخط کریں۔",
     "about_title": "ایپ کے بارے میں",
@@ -4836,6 +4906,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "انگریزی",
   },
   'uz': {
+    "recent_documents": "Yaqinda foydalanilgan hujjatlar",
     "app_title": "Faqat imzo qo\'ying",
     "dashboard_title": "Faqat imzo qo\'ying",
     "about_title": "Ilova haqida",
@@ -4903,6 +4974,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Ingliz",
   },
   'vi': {
+    "recent_documents": "Tài liệu gần đây",
     "app_title": "Chỉ cần ký",
     "dashboard_title": "Chỉ cần ký",
     "about_title": "Giới thiệu về ứng dụng",
@@ -4970,6 +5042,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "Tiếng Anh",
   },
   'zh': {
+    "recent_documents": "最近的文档",
     "app_title": "只需签名",
     "dashboard_title": "只需签名",
     "about_title": "关于应用程序",
@@ -5037,6 +5110,7 @@ const Map<String, Map<String, String>> localizedValues = {
     "english": "英语",
   },
   'zh_TW': {
+    "recent_documents": "繁體中文 (Recent Documents)",
     "app_title": "只需簽名",
     "dashboard_title": "只需簽名",
     "about_title": "關於應用程式",

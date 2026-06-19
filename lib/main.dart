@@ -1477,6 +1477,32 @@ class _EditorScreenState extends State<EditorScreen> {
   Uint8List? _currentPdfBytes;
   Uint8List get currentPdfBytes => _currentPdfBytes ?? widget.pdfBytes;
   final List<String> _pdfHistoryPaths = [];
+  
+  // Track the output file path for this session so we reuse/overwrite it
+  String? _currentSessionSignedPath;
+
+  Future<void> _autosaveDocumentToArchive(Uint8List bytes) async {
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final archiveDir = Directory('${docDir.path}/archive');
+      if (!await archiveDir.exists()) {
+        await archiveDir.create(recursive: true);
+      }
+
+      if (_currentSessionSignedPath == null) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final cleanName = widget.pdfName.replaceAll('.pdf', '');
+        final filename = '${cleanName}_signed_$timestamp.pdf';
+        _currentSessionSignedPath = '${archiveDir.path}/$filename';
+      }
+
+      final file = File(_currentSessionSignedPath!);
+      await file.writeAsBytes(bytes);
+      debugPrint('Autosaved document to: $_currentSessionSignedPath');
+    } catch (e) {
+      debugPrint('Error autosaving document to archive: $e');
+    }
+  }
 
   Future<void> _pushToHistory(Uint8List bytes) async {
     try {
@@ -1747,6 +1773,10 @@ class _EditorScreenState extends State<EditorScreen> {
           _signatureBytes = null;
           _signatureImage = null;
         });
+
+        // Update the autosaved file in the archive to match the undone state
+        await _autosaveDocumentToArchive(bytes);
+
         await file.delete();
       }
     } catch (e) {
@@ -1841,6 +1871,9 @@ class _EditorScreenState extends State<EditorScreen> {
 
       // Save old state to history
       await _pushToHistory(currentPdfBytes);
+
+      // Autosave to internal archive (recent files list)
+      await _autosaveDocumentToArchive(bakedBytes);
 
       _targetPageToRestore = _currentPage;
       setState(() {
@@ -2007,11 +2040,15 @@ class _EditorScreenState extends State<EditorScreen> {
         await archiveDir.create(recursive: true);
       }
       
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final cleanName = widget.pdfName.replaceAll('.pdf', '');
-      final filename = '${cleanName}_signed_$timestamp.pdf';
-      final file = File('${archiveDir.path}/$filename');
+      if (_currentSessionSignedPath == null) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final filename = '${cleanName}_signed_$timestamp.pdf';
+        _currentSessionSignedPath = '${archiveDir.path}/$filename';
+      }
+      final file = File(_currentSessionSignedPath!);
       await file.writeAsBytes(finalBytes);
+      final filename = _currentSessionSignedPath!.split(Platform.isWindows ? '\\' : '/').last;
 
       // Attempt to save to public Downloads or chosen folder
       String? targetDirPath;
@@ -2085,9 +2122,13 @@ class _EditorScreenState extends State<EditorScreen> {
         await archiveDir.create(recursive: true);
       }
       
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final cleanName = widget.pdfName.replaceAll('.pdf', '');
-      final file = File('${archiveDir.path}/${cleanName}_signed_$timestamp.pdf');
+      if (_currentSessionSignedPath == null) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final filename = '${cleanName}_signed_$timestamp.pdf';
+        _currentSessionSignedPath = '${archiveDir.path}/$filename';
+      }
+      final file = File(_currentSessionSignedPath!);
       await file.writeAsBytes(finalBytes);
 
       await Share.shareXFiles(
