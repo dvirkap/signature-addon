@@ -18,6 +18,7 @@ import 'translations.dart';
 import 'page_editor.dart';
 import 'iap_service.dart';
 import 'premium_paywall.dart';
+import 'package:flutter_doc_scanner/flutter_doc_scanner.dart';
 
 final ValueNotifier<String> appLanguage = ValueNotifier('he');
 
@@ -622,6 +623,58 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
+  Future<void> _scanNewDocument() async {
+    final bool isProUnlocked = IapService.instance.isPro.value;
+    if (!isProUnlocked) {
+      PremiumPaywall.show(context);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final ImageScanResult? result = await FlutterDocScanner().getScannedDocumentAsImages(
+        page: 20,
+      );
+      if (result == null || result.images.isEmpty) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Convert scanned JPEGs to a new PDF document
+      final sf.PdfDocument targetDoc = sf.PdfDocument();
+      for (final path in result.images) {
+        final file = File(path);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          final section = targetDoc.sections!.add();
+          section.pageSettings.margins.all = 0;
+          section.pageSettings.size = const Size(595, 842); // A4 page size
+          final page = section.pages.add();
+          final sf.PdfBitmap bitmap = sf.PdfBitmap(bytes);
+          page.graphics.drawImage(
+            bitmap,
+            Rect.fromLTWH(0, 0, page.size.width, page.size.height),
+          );
+        }
+      }
+
+      final List<int> savedBytes = targetDoc.saveSync();
+      targetDoc.dispose();
+
+      final Uint8List pdfBytes = Uint8List.fromList(savedBytes);
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final String docName = 'scan_$timestamp.pdf';
+
+      setState(() => _isLoading = false);
+      _openEditor(pdfBytes, docName);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('שגיאה בסריקה: $e')),
+      );
+    }
+  }
+
   void _openEditor(Uint8List bytes, String name) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -995,7 +1048,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                       minimumSize: const Size(260, 60),
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: _scanNewDocument,
+                                    icon: const Icon(Icons.camera_enhance, size: 24),
+                                    label: Text(getStr('scan_new_document'), style: const TextStyle(fontSize: 18)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF10B981),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(15),
+                                      ),
+                                      minimumSize: const Size(260, 60),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
                                   OutlinedButton.icon(
                                     onPressed: () {
                                       Navigator.of(context).push(
@@ -1400,6 +1468,7 @@ class _EditorScreenState extends State<EditorScreen> {
   int _currentPage = 1;
   double _zoomLevel = 1.0;
   int _pdfUpdateCounter = 0;
+  int? _targetPageToRestore;
 
   // Real-time PDF bytes and Undo history
   Uint8List? _currentPdfBytes;
@@ -1496,11 +1565,9 @@ class _EditorScreenState extends State<EditorScreen> {
     final bool isRotated90or270 = rotation == 90 || rotation == 270;
 
     final double W_viewport = viewportSize.width;
-    final double H_viewport = viewportSize.height;
     final double W_pdf = isRotated90or270 ? pdfSize.height : pdfSize.width;
-    final double H_pdf = isRotated90or270 ? pdfSize.width : pdfSize.height;
 
-    final double fitScale = min(W_viewport / W_pdf, H_viewport / H_pdf);
+    final double fitScale = W_viewport / W_pdf;
     final double W_page_unzoomed = W_pdf * fitScale;
 
     return W_page_unzoomed * _zoomLevel;
@@ -1518,11 +1585,10 @@ class _EditorScreenState extends State<EditorScreen> {
     final bool isRotated90or270 = rotation == 90 || rotation == 270;
 
     final double W_viewport = viewportSize.width;
-    final double H_viewport = viewportSize.height;
     final double W_pdf = isRotated90or270 ? pdfSize.height : pdfSize.width;
     final double H_pdf = isRotated90or270 ? pdfSize.width : pdfSize.height;
 
-    final double fitScale = min(W_viewport / W_pdf, H_viewport / H_pdf);
+    final double fitScale = W_viewport / W_pdf;
     final double H_page_unzoomed = H_pdf * fitScale;
 
     return H_page_unzoomed * _zoomLevel;
@@ -1544,7 +1610,7 @@ class _EditorScreenState extends State<EditorScreen> {
     final double W_pdf = isRotated90or270 ? pdfSize.height : pdfSize.width;
     final double H_pdf = isRotated90or270 ? pdfSize.width : pdfSize.height;
 
-    final double fitScale = min(W_viewport / W_pdf, H_viewport / H_pdf);
+    final double fitScale = W_viewport / W_pdf;
     final double W_page_unzoomed = W_pdf * fitScale;
     final double H_page_unzoomed = H_pdf * fitScale;
 
@@ -1560,13 +1626,10 @@ class _EditorScreenState extends State<EditorScreen> {
     final double W_page_zoomed = W_page_unzoomed * zoom;
     final double H_page_zoomed = H_page_unzoomed * zoom;
 
-    final double scrollXZoomed = scrollX * zoom;
-    final double scrollYZoomed = scrollY * zoom;
+    final double x_page_start = max(0.0, (W_viewport - W_page_zoomed) / 2) - scrollX;
+    final double y_page_start = 8.0 * zoom - scrollY;
 
-    final double x_page_start = max(0.0, (W_viewport - W_page_zoomed) / 2) - scrollXZoomed;
-    final double y_page_start = max(0.0, (H_viewport - H_page_zoomed) / 2) - scrollYZoomed;
-
-    debugPrint('POSITION DEBUG: zoom=$zoom, scroll=($scrollX, $scrollY), scrollZoomed=($scrollXZoomed, $scrollYZoomed), viewport=(${W_viewport}x${H_viewport}), pageZoomed=(${W_page_zoomed}x${H_page_zoomed}), pageStart=(${x_page_start}, ${y_page_start})');
+    debugPrint('POSITION DEBUG: zoom=$zoom, scroll=($scrollX, $scrollY), viewport=(${W_viewport}x${H_viewport}), pageZoomed=(${W_page_zoomed}x${H_page_zoomed}), pageStart=(${x_page_start}, ${y_page_start})');
 
     return Offset(x_page_start, y_page_start);
   }
@@ -1587,18 +1650,10 @@ class _EditorScreenState extends State<EditorScreen> {
       final double W_viewport = viewportSize.width;
       final double H_viewport = viewportSize.height;
 
-      double scrollX = 0.0;
-      double scrollY = 0.0;
-      try {
-        scrollX = _pdfViewerController.scrollOffset.dx;
-        scrollY = _pdfViewerController.scrollOffset.dy;
-      } catch (_) {}
 
-      // Find the visual center of the viewport relative to the page start
-      final double scrollXZoomed = scrollX * _zoomLevel;
-      final double scrollYZoomed = scrollY * _zoomLevel;
-      final double centerXOnPage = W_viewport / 2 + scrollXZoomed;
-      final double centerYOnPage = H_viewport / 2 + scrollYZoomed;
+      final Offset pageStart = _getPageStart();
+      final double centerXOnPage = W_viewport / 2 - pageStart.dx;
+      final double centerYOnPage = H_viewport / 2 - pageStart.dy;
 
       // Normalize to page relative coordinate (0.0 to 1.0)
       initialRx = (centerXOnPage / W_page_zoomed).clamp(0.0, 1.0);
@@ -1679,13 +1734,8 @@ class _EditorScreenState extends State<EditorScreen> {
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
         
-        double currentScrollX = 0.0;
-        double currentScrollY = 0.0;
-        try {
-          currentScrollX = _pdfViewerController.scrollOffset.dx;
-          currentScrollY = _pdfViewerController.scrollOffset.dy;
-        } catch (_) {}
 
+        _targetPageToRestore = _currentPage;
         setState(() {
           _currentPdfBytes = bytes;
           _pdfUpdateCounter++;
@@ -1748,11 +1798,10 @@ class _EditorScreenState extends State<EditorScreen> {
     // 3. If edits are returned, save old state to history and update active PDF
     if (result != null) {
       await _pushToHistory(currentPdfBytes);
+      _targetPageToRestore = _currentPage;
       setState(() {
         _currentPdfBytes = result;
         _pdfUpdateCounter++;
-        
-        _currentPage = 1;
       });
     }
   }
@@ -1790,6 +1839,7 @@ class _EditorScreenState extends State<EditorScreen> {
       // Save old state to history
       await _pushToHistory(currentPdfBytes);
 
+      _targetPageToRestore = _currentPage;
       setState(() {
         _currentPdfBytes = bakedBytes;
         _pdfUpdateCounter++;
@@ -1820,13 +1870,14 @@ class _EditorScreenState extends State<EditorScreen> {
         return Directionality(
           textDirection: appLanguage.value == 'he' ? TextDirection.rtl : TextDirection.ltr,
           child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
                     getStr('select_or_add'),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
@@ -1924,8 +1975,9 @@ class _EditorScreenState extends State<EditorScreen> {
                               );
                             },
                           ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -2443,6 +2495,14 @@ class _EditorScreenState extends State<EditorScreen> {
                           }
                         } catch (e) {
                           debugPrint('Error locking form fields: $e');
+                        }
+
+                        if (_targetPageToRestore != null) {
+                          final int targetPage = _targetPageToRestore!;
+                          _targetPageToRestore = null;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _pdfViewerController.jumpToPage(targetPage);
+                          });
                         }
 
                         final List<Size> sizes = [];
@@ -3607,6 +3667,7 @@ class PdfReaderScreen extends StatelessWidget {
           child: SfPdfViewer.file(
             file,
             canShowScrollHead: false,
+            scrollDirection: PdfScrollDirection.vertical,
             enableTextSelection: false,
             enableDocumentLinkAnnotation: false,
           ),

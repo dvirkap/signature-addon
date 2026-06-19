@@ -1,16 +1,26 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
 import 'package:image_picker/image_picker.dart';
 import 'main.dart';
 import 'document_scan_editor.dart';
+import 'package:pdfx/pdfx.dart' as pdfx;
+import 'package:flutter_doc_scanner/flutter_doc_scanner.dart';
+import 'premium_paywall.dart';
 
 class PageItem {
   final int originalIndex; // -1 if newly added
   int rotationDegrees; // 0, 90, 180, 270 relative to original
   final bool isBlank;
-  final Uint8List? imageBytes;
+  Uint8List? imageBytes;
   final Size size;
+
+  // Retroactive scanning metadata
+  final Uint8List? scanOriginalBytes;
+  List<Offset>? scanCorners;
+  String? scanFilter;
+  int? scanRotation;
 
   PageItem({
     required this.originalIndex,
@@ -18,6 +28,10 @@ class PageItem {
     this.isBlank = false,
     this.imageBytes,
     required this.size,
+    this.scanOriginalBytes,
+    this.scanCorners,
+    this.scanFilter,
+    this.scanRotation,
   });
 }
 
@@ -39,6 +53,7 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
   bool _isLoading = true;
   List<PageItem> _pages = [];
   late sf.PdfDocument _originalDoc;
+  List<Uint8List?> _pageThumbnails = [];
 
   @override
   void initState() {
@@ -60,8 +75,10 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
       }
       setState(() {
         _pages = items;
+        _pageThumbnails = List.filled(_originalDoc.pages.count, null);
         _isLoading = false;
       });
+      _renderThumbnails();
     } catch (e) {
       debugPrint('Error loading PDF in page editor: $e');
       if (mounted) {
@@ -70,6 +87,29 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
         );
         Navigator.pop(context);
       }
+    }
+  }
+
+  Future<void> _renderThumbnails() async {
+    try {
+      final pdfxDoc = await pdfx.PdfDocument.openData(widget.pdfBytes);
+      for (int i = 0; i < _originalDoc.pages.count; i++) {
+        final page = await pdfxDoc.getPage(i + 1);
+        final pageImage = await page.render(
+          width: page.width * 1.5,
+          height: page.height * 1.5,
+          format: pdfx.PdfPageImageFormat.png,
+        );
+        await page.close();
+        if (mounted) {
+          setState(() {
+            _pageThumbnails[i] = pageImage?.bytes;
+          });
+        }
+      }
+      await pdfxDoc.close();
+    } catch (e) {
+      debugPrint('Error rendering thumbnails: $e');
     }
   }
 
@@ -102,23 +142,6 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
     });
   }
 
-  // Move page left
-  void _movePageLeft(int index) {
-    if (index <= 0) return;
-    setState(() {
-      final item = _pages.removeAt(index);
-      _pages.insert(index - 1, item);
-    });
-  }
-
-  // Move page right
-  void _movePageRight(int index) {
-    if (index >= _pages.length - 1) return;
-    setState(() {
-      final item = _pages.removeAt(index);
-      _pages.insert(index + 1, item);
-    });
-  }
 
   // Add a blank A4 page at a specific index
   void _addBlankPage(int index) {
@@ -134,7 +157,59 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
     });
   }
 
-  // Pick and add image page
+  // Scan one or more new pages via native flutter_doc_scanner
+  Future<void> _scanNewPages(int index) async {
+    if (!widget.isPro) {
+      PremiumPaywall.show(context);
+      return;
+    }
+
+    try {
+      final ImageScanResult? result = await FlutterDocScanner().getScannedDocumentAsImages(
+        page: 20,
+      );
+      if (result == null || result.images.isEmpty) {
+        return;
+      }
+
+      final List<PageItem> newItems = [];
+      for (final path in result.images) {
+        final file = File(path);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          newItems.add(
+            PageItem(
+              originalIndex: -1,
+              imageBytes: bytes,
+              size: const Size(595, 842),
+              scanOriginalBytes: bytes,
+              scanCorners: const [
+                Offset(0.0, 0.0),
+                Offset(1.0, 0.0),
+                Offset(0.0, 1.0),
+                Offset(1.0, 1.0),
+              ],
+              scanFilter: 'original',
+              scanRotation: 0,
+            ),
+          );
+        }
+      }
+
+      if (newItems.isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          for (int i = 0; i < newItems.length; i++) {
+            _pages.insert(index + i, newItems[i]);
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error scanning pages: $e');
+    }
+  }
+
+  // Pick and add image page from gallery
   Future<void> _addImagePage(int index, ImageSource source) async {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
@@ -147,26 +222,61 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
       if (!mounted) return;
 
       // Navigate to the DocumentScanEditorScreen to crop/enhance
-      final processedBytes = await Navigator.push<Uint8List>(
+      final ScanEditorResult? result = await Navigator.push<ScanEditorResult>(
         context,
         MaterialPageRoute(
           builder: (context) => DocumentScanEditorScreen(imageBytes: bytes),
         ),
       );
 
-      if (processedBytes != null) {
+      if (result != null) {
         if (!mounted) return;
         setState(() {
           _pages.insert(
             index,
             PageItem(
               originalIndex: -1,
-              imageBytes: processedBytes,
+              imageBytes: result.processedBytes,
               size: const Size(595, 842),
+              scanOriginalBytes: result.originalBytes,
+              scanCorners: result.corners,
+              scanFilter: result.filter,
+              scanRotation: result.rotation,
             ),
           );
         });
       }
+    }
+  }
+
+  Future<void> _openRetroactiveScanEditor(int index, PageItem item) async {
+    final ScanEditorResult? result = await Navigator.push<ScanEditorResult>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DocumentScanEditorScreen(
+          imageBytes: item.scanOriginalBytes!,
+          initialCorners: item.scanCorners,
+          initialFilter: item.scanFilter,
+          initialRotation: item.scanRotation,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      if (!mounted) return;
+      setState(() {
+        _pages[index] = PageItem(
+          originalIndex: item.originalIndex,
+          rotationDegrees: item.rotationDegrees,
+          isBlank: item.isBlank,
+          imageBytes: result.processedBytes,
+          size: item.size,
+          scanOriginalBytes: result.originalBytes,
+          scanCorners: result.corners,
+          scanFilter: result.filter,
+          scanRotation: result.rotation,
+        );
+      });
     }
   }
 
@@ -186,15 +296,14 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
 
       for (final item in _pages) {
         sf.PdfPage page;
+        final section = targetDoc.sections!.add();
+        section.pageSettings.margins.all = 0;
+
         if (item.isBlank) {
-          final section = targetDoc.sections!.add();
           section.pageSettings.size = item.size;
-          section.pageSettings.margins.all = 0;
           page = section.pages.add();
         } else if (item.imageBytes != null) {
-          final section = targetDoc.sections!.add();
           section.pageSettings.size = item.size;
-          section.pageSettings.margins.all = 0;
           page = section.pages.add();
           
           final sf.PdfBitmap bitmap = sf.PdfBitmap(item.imageBytes!);
@@ -206,11 +315,10 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
           final sourcePage = _originalDoc.pages[item.originalIndex];
           final template = sourcePage.createTemplate();
           
-          final section = targetDoc.sections!.add();
           section.pageSettings.size = sourcePage.size;
-          section.pageSettings.margins.all = 0;
           
           page = section.pages.add();
+          page.rotation = sourcePage.rotation;
           page.graphics.drawPdfTemplate(template, Offset.zero, sourcePage.size);
         }
 
@@ -218,6 +326,7 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
         if (item.rotationDegrees != 0) {
           page.rotation = _addRotation(page.rotation, item.rotationDegrees);
         }
+        section.pageSettings.rotate = page.rotation;
       }
 
       final List<int> savedBytes = targetDoc.saveSync();
@@ -287,7 +396,7 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
                 title: Text(getStr('scan_page')),
                 onTap: () {
                   Navigator.pop(context);
-                  _addImagePage(index, ImageSource.camera);
+                  _scanNewPages(index);
                 },
               ),
               ListTile(
@@ -307,123 +416,168 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
 
   Widget _buildPageCard(int index, PageItem item) {
     final bool isLandscape = (item.size.width > item.size.height);
-    // Rotate indicator
     final int displayRotation = item.rotationDegrees;
     final bool isEffectivelyLandscape = (displayRotation == 90 || displayRotation == 270)
         ? !isLandscape
         : isLandscape;
 
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[300]!, width: 1),
-      ),
-      child: Column(
-        children: [
-          // Drag/Move top bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  onPressed: index > 0 ? () => _movePageLeft(index) : null,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                Text(
-                  '${getStr('page_indicator_simple')} ${index + 1}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward, size: 18),
-                  onPressed: index < _pages.length - 1 ? () => _movePageRight(index) : null,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
+    Widget previewWidget;
+    if (item.isBlank) {
+      previewWidget = Container(
+        color: Colors.white,
+        child: Center(
+          child: Icon(
+            Icons.insert_drive_file_outlined,
+            size: 32,
+            color: Colors.grey[400],
           ),
-          const Divider(height: 1),
-          // Page Preview Area
-          Expanded(
-            child: Container(
-              color: Colors.grey[50],
-              padding: const EdgeInsets.all(8.0),
+        ),
+      );
+    } else if (item.imageBytes != null) {
+      previewWidget = Image.memory(
+        item.imageBytes!,
+        fit: BoxFit.contain,
+      );
+    } else if (item.originalIndex != -1 &&
+        item.originalIndex < _pageThumbnails.length &&
+        _pageThumbnails[item.originalIndex] != null) {
+      previewWidget = Image.memory(
+        _pageThumbnails[item.originalIndex]!,
+        fit: BoxFit.contain,
+      );
+    } else {
+      previewWidget = Container(
+        color: Colors.grey[100],
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      key: ValueKey(item),
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey[200]!, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            // 1. Drag Handle
+            ReorderableDragStartListener(
+              index: index,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                child: Icon(Icons.drag_indicator, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 2. Thumbnail
+            SizedBox(
+              width: 70,
+              height: 90,
               child: Center(
                 child: AspectRatio(
                   aspectRatio: isEffectivelyLandscape ? 1.414 : 0.707,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey[400]!),
+                      border: Border.all(color: Colors.grey[300]!),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                          offset: const Offset(1, 2),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
                         )
                       ],
                     ),
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: Icon(
-                            item.isBlank
-                                ? Icons.insert_drive_file_outlined
-                                : item.imageBytes != null
-                                    ? Icons.image_outlined
-                                    : Icons.picture_as_pdf_outlined,
-                            size: 36,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                        if (item.rotationDegrees != 0)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: CircleAvatar(
-                              radius: 10,
-                              backgroundColor: Colors.indigo.withOpacity(0.8),
-                              child: Text(
-                                '${item.rotationDegrees}°',
-                                style: const TextStyle(color: Colors.white, fontSize: 8),
-                              ),
-                            ),
-                          ),
-                      ],
+                    child: RotatedBox(
+                      quarterTurns: item.rotationDegrees ~/ 90,
+                      child: previewWidget,
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          const Divider(height: 1),
-          // Actions bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.rotate_left, size: 18),
-                onPressed: () => _rotatePageCounterClockwise(index),
-                tooltip: getStr('rotate_counter'),
+            const SizedBox(width: 16),
+            // 3. Info (Page Number)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${getStr('page_indicator_simple')} ${index + 1}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  if (item.isBlank)
+                    Text(
+                      getStr('insert_blank'),
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    )
+                  else if (item.imageBytes != null)
+                    Text(
+                      getStr('scan_page'),
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    )
+                  else if (isLandscape)
+                    Text(
+                      'לרוחב (Landscape)',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.rotate_right, size: 18),
-                onPressed: () => _rotatePageClockwise(index),
-                tooltip: getStr('rotate_clockwise'),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                onPressed: () => _deletePage(index),
-                tooltip: getStr('delete_page'),
-              ),
-            ],
-          ),
-        ],
+            ),
+            // 4. Action buttons
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (item.scanOriginalBytes != null)
+                  IconButton(
+                    icon: const Icon(Icons.crop, size: 20, color: Colors.indigoAccent),
+                    onPressed: () => _openRetroactiveScanEditor(index, item),
+                    tooltip: 'עריכת סריקה',
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.rotate_left, size: 20),
+                  onPressed: () => _rotatePageCounterClockwise(index),
+                  tooltip: getStr('rotate_counter'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.rotate_right, size: 20),
+                  onPressed: () => _rotatePageClockwise(index),
+                  tooltip: getStr('rotate_clockwise'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                  onPressed: () => _deletePage(index),
+                  tooltip: getStr('delete_page'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (BuildContext context, Widget? child) {
+        final double animValue = Curves.easeInOut.transform(animation.value);
+        final double scale = 1.0 + animValue * 0.03;
+        return Transform.scale(
+          scale: scale,
+          child: child,
+        );
+      },
+      child: child,
     );
   }
 
@@ -448,24 +602,23 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SafeArea(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.75,
-                        ),
-                        itemCount: _pages.length,
-                        itemBuilder: (context, index) {
-                          return _buildPageCard(index, _pages[index]);
-                        },
-                      ),
-                    ),
-                  ],
+                child: ReorderableListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  proxyDecorator: _proxyDecorator,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: _pages.length,
+                  itemBuilder: (context, index) {
+                    return _buildPageCard(index, _pages[index]);
+                  },
+                  onReorder: (int oldIndex, int newIndex) {
+                    setState(() {
+                      if (oldIndex < newIndex) {
+                        newIndex -= 1;
+                      }
+                      final PageItem item = _pages.removeAt(oldIndex);
+                      _pages.insert(newIndex, item);
+                    });
+                  },
                 ),
               ),
         floatingActionButton: FloatingActionButton.extended(

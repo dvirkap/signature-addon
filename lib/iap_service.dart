@@ -18,7 +18,7 @@ class IapService {
   Future<void> initialize() async {
     // 1. Load offline cached state from AppSettings
     final settings = await AppSettings.readSettings();
-    isPro.value = settings['is_pro'] == true;
+    isPro.value = true; // TODO: Revert to settings['is_pro'] == true; for production
     debugPrint('IAP: Loaded cached Pro status: ${isPro.value}');
 
     // 2. Initialize in-app purchase stream
