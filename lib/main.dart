@@ -230,7 +230,7 @@ class _MyAppState extends State<MyApp> {
       valueListenable: appLanguage,
       builder: (context, lang, child) {
         return MaterialApp(
-          title: lang == 'he' ? 'Just sign - ╫ñ╫⌐╫ץ╫ר ╫£╫ק╫¬╫ץ╫¥' : 'Just sign',
+          title: lang == 'he' ? 'Just sign - פשוט לחתום' : 'Just sign',
           debugShowCheckedModeBanner: false,
           locale: Locale(lang),
           localizationsDelegates: const [
@@ -443,7 +443,7 @@ String getSignatureLabel(File file, String locale) {
       // ignore
     }
   }
-  return locale == 'he' ? '╫ק╫¬╫ש╫₧╫פ/╫ק╫ץ╫¬╫₧╫¬' : 'Signature/Stamp';
+  return locale == 'he' ? 'חתימה/חותמת' : 'Signature/Stamp';
 }
 
 String formatFileSize(int bytes) {
@@ -616,7 +616,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         _openEditor(bytes, result.files.single.name);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('שגיאה: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -665,7 +665,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    isHe ? '╫ó╫ף╫¢╫á╫ש' : 'Current',
+                    isHe ? 'נוכחי' : 'Current',
                     style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -847,11 +847,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       child: Icon(Icons.gesture, size: 40, color: Color(0xFF4F46E5)),
                     ),
                     accountName: Text(
-                      lang == 'he' ? '╫ף╫ס╫ש╫¿ ╫º╫ñ╫£╫ƒ' : 'Dvir Kaplan',
+                      lang == 'he' ? 'דביר קפלן' : 'Dvir Kaplan',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     accountEmail: Text(
-                      lang == 'he' ? '╫⌐╫ש╫¿╫ץ╫¬ ╫£╫ª╫ש╫ס╫ץ╫¿' : 'Public Service',
+                      lang == 'he' ? 'שירות לציבור' : 'Public Service',
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ),
@@ -909,7 +909,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               ),
                               title: Text(
                                 isProUnlocked
-                                    ? (lang == 'he' ? '╫ע╫¿╫í╫¬ PRO ╫ñ╫ó╫ש╫£╫פ' : 'PRO Version Active')
+                                    ? (lang == 'he' ? 'גרסת PRO פעילה' : 'PRO Version Active')
                                     : getStr('upgrade_to_pro'),
                                 style: TextStyle(
                                   fontWeight: isProUnlocked ? FontWeight.normal : FontWeight.bold,
@@ -919,7 +919,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               subtitle: isProUnlocked
                                   ? null
                                   : Text(
-                                      lang == 'he' ? '╫ó╫¿╫ש╫¢╫¬ ╫ף╫ñ╫ש╫¥ ╫ץ╫í╫¿╫ש╫º╫¬ ╫₧╫í╫₧╫¢╫ש╫¥' : 'Page editing & scanning',
+                                      lang == 'he' ? 'עריכת דפים וסריקת מסמכים' : 'Page editing & scanning',
                                       style: const TextStyle(fontSize: 11),
                                     ),
                               onTap: () {
@@ -1996,7 +1996,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
       if (savedSuccessfully) {
         final successMsg = appLanguage.value == 'he'
-            ? '╫פ╫₧╫í╫₧╫ת ╫á╫⌐╫₧╫¿ ╫ס╫פ╫ª╫£╫ק╫פ ╫ס-$targetDirPath'
+            ? 'המסמך נשמר בהצלחה ב-$targetDirPath'
             : 'Document saved successfully to $targetDirPath';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2007,7 +2007,7 @@ class _EditorScreenState extends State<EditorScreen> {
         Navigator.of(context).pop(); // Return to dashboard
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('שגיאה: $e')));
     } finally {
       setState(() => _isProcessing = false);
     }
@@ -2040,7 +2040,7 @@ class _EditorScreenState extends State<EditorScreen> {
         text: getStr('app_title'),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('שגיאה: $e')));
     } finally {
       setState(() => _isProcessing = false);
     }
@@ -2664,7 +2664,7 @@ class _EditorScreenState extends State<EditorScreen> {
                         // Rotate
                         IconButton(
                           icon: const Icon(Icons.rotate_right, color: Color(0xFF4F46E5), size: 20),
-                          tooltip: '╫í╫ץ╫ס╫ס 90┬░',
+                          tooltip: 'סובב 90°',
                           onPressed: () {
                             setState(() {
                               _overlayRotation = (_overlayRotation + pi / 2) % (2 * pi);
@@ -2817,7 +2817,7 @@ class _SignatureCropEditorScreenState extends State<SignatureCropEditorScreen> {
       debugPrint('Error loading image in editor: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ ╫ס╫ר╫ó╫ש╫á╫¬ ╫פ╫¬╫₧╫ץ╫á╫פ: $e')),
+          SnackBar(content: Text('שגיאה בטעינת תמונה: $e')),
         );
         Navigator.pop(context);
       }
@@ -3036,7 +3036,7 @@ class _SignatureCropEditorScreenState extends State<SignatureCropEditorScreen> {
           _isSaving = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ ╫ס╫⌐╫₧╫ש╫¿╫¬ ╫פ╫¬╫₧╫ץ╫á╫פ: $e')),
+          SnackBar(content: Text('שגיאה בשמירת תמונה: $e')),
         );
       }
     }
@@ -3046,14 +3046,14 @@ class _SignatureCropEditorScreenState extends State<SignatureCropEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('╫ó╫¿╫ש╫¢╫פ ╫ץ╫á╫ש╫º╫ץ╫ש ╫¿╫º╫ó ╫פ╫ק╫¬╫ש╫₧╫פ'),
+        title: const Text('עריכה וניקוי רקע חתימה'),
         centerTitle: true,
         actions: [
           if (!_isLoading && !_isSaving)
             IconButton(
               icon: const Icon(Icons.check, color: Colors.green, size: 28),
               onPressed: _onSave,
-              tooltip: '╫נ╫⌐╫¿ ╫ץ╫⌐╫₧╫ץ╫¿',
+              tooltip: 'אשר ושמור',
             ),
         ],
       ),
@@ -3201,24 +3201,24 @@ class _SignatureCropEditorScreenState extends State<SignatureCropEditorScreen> {
                             children: [
                               // 1. Ink color picker
                               const Text(
-                                '╫ס╫ק╫¿ ╫ª╫ס╫ó ╫ף╫ש╫ץ:',
+                                'בחר צבע דיו:',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                                 textDirection: TextDirection.rtl,
                               ),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  _inkColorButton('╫₧╫º╫ץ╫¿╫ש', 'original'),
+                                  _inkColorButton('מקורי', 'original'),
                                   const SizedBox(width: 8),
-                                  _inkColorButton('╫⌐╫ק╫ץ╫¿', 'black'),
+                                  _inkColorButton('שחור', 'black'),
                                   const SizedBox(width: 8),
-                                  _inkColorButton('╫¢╫ק╫ץ╫£', 'blue'),
+                                  _inkColorButton('כחול', 'blue'),
                                 ],
                               ),
                               const SizedBox(height: 12),
                               // 2. Sensitivity Slider
                               const Text(
-                                '╫¿╫ע╫ש╫⌐╫ץ╫¬ ╫á╫ש╫º╫ץ╫ש ╫¿╫º╫ó:',
+                                'רגישות ניקוי רקע:',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                                 textDirection: TextDirection.rtl,
                               ),
@@ -3236,7 +3236,7 @@ class _SignatureCropEditorScreenState extends State<SignatureCropEditorScreen> {
                               const SizedBox(height: 8),
                               // 3. Live Preview
                               const Text(
-                                '╫¬╫ª╫ץ╫ע╫פ ╫₧╫º╫ף╫ש╫₧╫פ (╫⌐╫º╫ץ╫ú):',
+                                'תצוגה מקדימה (שקוף):',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                                 textDirection: TextDirection.rtl,
                               ),
@@ -3275,7 +3275,7 @@ class _SignatureCropEditorScreenState extends State<SignatureCropEditorScreen> {
                             CircularProgressIndicator(),
                             SizedBox(height: 16),
                             Text(
-                              '╫⌐╫ץ╫₧╫¿ ╫ץ╫₧╫á╫º╫פ ╫ק╫¬╫ש╫₧╫פ...',
+                              'שומר ומנקה חתימה...',
                               style: TextStyle(color: Colors.white, fontSize: 16),
                             ),
                           ],
@@ -3477,7 +3477,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _loadArchiveFiles();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('╫⌐╫ע╫ש╫נ╫פ ╫ס╫₧╫ק╫ש╫º╫פ: $e')),
+          SnackBar(content: Text('שגיאה במחיקה: $e')),
         );
       }
     }
