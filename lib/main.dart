@@ -711,7 +711,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${getStr('version')} 1.1.0',
+                    '${getStr('version')} 1.1.1',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 12),
@@ -730,7 +730,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                   const SizedBox(height: 12),
                   _buildChangelogItem(
-                    '1.1.0',
+                    '1.1.1',
                     getStr('version_changelog_1_1_0'),
                     isLatest: true,
                   ),
@@ -946,7 +946,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      '${getStr('version')} 1.1.0',
+                      '${getStr('version')} 1.1.1',
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ),
@@ -954,7 +954,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ),
             appBar: AppBar(
-              title: Text('v2.8 | ${getStr('dashboard_title')}'),
+              title: Text('v1.1.1 | ${getStr('dashboard_title')}'),
               centerTitle: true,
               actions: [
                 IconButton(
@@ -1441,13 +1441,6 @@ class _EditorScreenState extends State<EditorScreen> {
     _pdfHistoryPaths.clear();
   }
 
-  // Page restoration state
-  bool _restorePageState = false;
-  int _targetPage = 1;
-  double _targetZoom = 1.0;
-  double? _targetScrollX;
-  double? _targetScrollY;
-
   // PDF page sizes loaded on startup
   List<Size> _pdfPageSizes = [];
   List<int> _pdfPageRotations = [];
@@ -1696,11 +1689,6 @@ class _EditorScreenState extends State<EditorScreen> {
         setState(() {
           _currentPdfBytes = bytes;
           _pdfUpdateCounter++;
-          _restorePageState = true;
-          _targetPage = _currentPage;
-          _targetZoom = _zoomLevel;
-          _targetScrollX = currentScrollX;
-          _targetScrollY = currentScrollY;
 
           // Cancel active signature if editing
           _signatureBytes = null;
@@ -1764,10 +1752,6 @@ class _EditorScreenState extends State<EditorScreen> {
         _currentPdfBytes = result;
         _pdfUpdateCounter++;
         
-        // Reset state so viewer re-evaluates
-        _restorePageState = true;
-        _targetPage = 1;
-        _targetZoom = 1.0;
         _currentPage = 1;
       });
     }
@@ -1814,13 +1798,6 @@ class _EditorScreenState extends State<EditorScreen> {
         _signatureBytes = null;
         _signatureImage = null;
         _signatureCaption = null;
-
-        // Save target zoom/scroll position for restoration
-        _targetPage = _currentPage;
-        _targetZoom = _zoomLevel;
-        _targetScrollX = _pdfViewerController.scrollOffset.dx;
-        _targetScrollY = _pdfViewerController.scrollOffset.dy;
-        _restorePageState = true;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2381,7 +2358,7 @@ class _EditorScreenState extends State<EditorScreen> {
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('v2.8 | ${widget.pdfName}'),
+          title: Text('v1.1.1 | ${widget.pdfName}'),
           actions: [
             if (_pdfHistoryPaths.isNotEmpty)
               IconButton(
@@ -2453,8 +2430,6 @@ class _EditorScreenState extends State<EditorScreen> {
                             currentPdfBytes,
                             key: ValueKey('pdf_viewer_$_pdfUpdateCounter'),
                             controller: _pdfViewerController,
-                            initialScrollOffset: Offset(0, _targetScrollY ?? 0),
-                            initialZoomLevel: _targetZoom > 0 ? _targetZoom : 1.0,
                       canShowScrollHead: false,
                       pageLayoutMode: PdfPageLayoutMode.single,
                       scrollDirection: PdfScrollDirection.vertical,
@@ -2495,29 +2470,6 @@ class _EditorScreenState extends State<EditorScreen> {
                           _pdfPageSizes = sizes;
                           _pdfPageRotations = rotations;
                         });
-
-                        if (_restorePageState) {
-                          _restorePageState = false;
-                          if (_targetScrollX != null && _targetScrollY != null) {
-                            final double zoom = _targetZoom;
-                            final double x = _targetScrollX!;
-                            final double y = _targetScrollY!;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) {
-                                _pdfViewerController.zoomLevel = zoom;
-                                int count = 0;
-                                Timer.periodic(const Duration(milliseconds: 30), (timer) {
-                                  if (!mounted || count >= 15) {
-                                    timer.cancel();
-                                    return;
-                                  }
-                                  _pdfViewerController.jumpTo(xOffset: x, yOffset: y);
-                                  count++;
-                                });
-                              }
-                            });
-                          }
-                        }
                       },
                       onZoomLevelChanged: (PdfZoomDetails details) {
                         _zoomLevel = details.newZoomLevel;
