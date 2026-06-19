@@ -1611,11 +1611,9 @@ class _EditorScreenState extends State<EditorScreen> {
     final double H_pdf = isRotated90or270 ? pdfSize.width : pdfSize.height;
 
     final double fitScale = W_viewport / W_pdf;
-    final double W_page_unzoomed = W_pdf * fitScale;
-    final double H_page_unzoomed = H_pdf * fitScale;
+    final double W_page_zoomed = W_pdf * fitScale * _zoomLevel;
+    final double H_page_zoomed = H_pdf * fitScale * _zoomLevel;
 
-    final double zoom = _zoomLevel;
-    
     double scrollX = 0.0;
     double scrollY = 0.0;
     try {
@@ -1623,15 +1621,19 @@ class _EditorScreenState extends State<EditorScreen> {
       scrollY = _pdfViewerController.scrollOffset.dy;
     } catch (_) {}
 
-    final double W_page_zoomed = W_page_unzoomed * zoom;
-    final double H_page_zoomed = H_page_unzoomed * zoom;
+    // Convert scrollOffset (which is in original PDF points) to viewport pixels
+    final double scrollX_pixels = scrollX * fitScale * _zoomLevel;
+    final double scrollY_pixels = scrollY * fitScale * _zoomLevel;
 
-    final double x_page_start = max(0.0, (W_viewport - W_page_zoomed) / 2) - scrollX;
+    final double x_page_start = W_viewport > W_page_zoomed
+        ? (W_viewport - W_page_zoomed) / 2
+        : -scrollX_pixels;
+
     final double y_page_start = H_viewport > H_page_zoomed
         ? (H_viewport - H_page_zoomed) / 2
-        : 8.0 - scrollY;
+        : 8.0 - scrollY_pixels;
 
-    debugPrint('POSITION DEBUG: zoom=$zoom, scroll=($scrollX, $scrollY), viewport=(${W_viewport}x${H_viewport}), pageZoomed=(${W_page_zoomed}x${H_page_zoomed}), pageStart=(${x_page_start}, ${y_page_start})');
+    debugPrint('POSITION DEBUG: zoom=$_zoomLevel, fitScale=$fitScale, scroll=($scrollX, $scrollY) -> pixels($scrollX_pixels, $scrollY_pixels), viewport=(${W_viewport}x${H_viewport}), pageZoomed=(${W_page_zoomed}x${H_page_zoomed}), pageStart=(${x_page_start}, ${y_page_start})');
 
     return Offset(x_page_start, y_page_start);
   }
@@ -2469,7 +2471,7 @@ class _EditorScreenState extends State<EditorScreen> {
               // PDF Viewer wrapped in a NotificationListener to capture scroll updates
               NotificationListener<ScrollNotification>(
                 onNotification: (ScrollNotification notification) {
-                  if (notification.depth == 0 && _signatureBytes != null) {
+                  if (_signatureBytes != null) {
                     setState(() {});
                   }
                   return false; // Allow the scroll notification to bubble up
