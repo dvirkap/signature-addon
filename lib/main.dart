@@ -1627,7 +1627,9 @@ class _EditorScreenState extends State<EditorScreen> {
     final double H_page_zoomed = H_page_unzoomed * zoom;
 
     final double x_page_start = max(0.0, (W_viewport - W_page_zoomed) / 2) - scrollX;
-    final double y_page_start = 8.0 * zoom - scrollY;
+    final double y_page_start = H_viewport > H_page_zoomed
+        ? (H_viewport - H_page_zoomed) / 2
+        : 8.0 - scrollY;
 
     debugPrint('POSITION DEBUG: zoom=$zoom, scroll=($scrollX, $scrollY), viewport=(${W_viewport}x${H_viewport}), pageZoomed=(${W_page_zoomed}x${H_page_zoomed}), pageStart=(${x_page_start}, ${y_page_start})');
 
