@@ -1166,12 +1166,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                             style: TextStyle(color: Colors.grey[600], fontSize: 12),
                                           ),
                                           trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                                          onTap: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (context) => PdfReaderScreen(file: file, displayName: name),
-                                              ),
-                                            ).then((_) => _loadRecentFiles());
+                                          onTap: () async {
+                                            final bytes = await file.readAsBytes();
+                                            if (context.mounted) {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => EditorScreen(pdfBytes: bytes, pdfName: name),
+                                                ),
+                                              ).then((_) => _loadRecentFiles());
+                                            }
                                           },
                                         ),
                                       );
@@ -1621,19 +1624,15 @@ class _EditorScreenState extends State<EditorScreen> {
       scrollY = _pdfViewerController.scrollOffset.dy;
     } catch (_) {}
 
-    // Convert scrollOffset (which is in original PDF points) to viewport pixels
-    final double scrollX_pixels = scrollX * fitScale * _zoomLevel;
-    final double scrollY_pixels = scrollY * fitScale * _zoomLevel;
-
     final double x_page_start = W_viewport > W_page_zoomed
         ? (W_viewport - W_page_zoomed) / 2
-        : -scrollX_pixels;
+        : -scrollX * _zoomLevel;
 
     final double y_page_start = H_viewport > H_page_zoomed
         ? (H_viewport - H_page_zoomed) / 2
-        : 8.0 - scrollY_pixels;
+        : -scrollY * _zoomLevel;
 
-    debugPrint('POSITION DEBUG: zoom=$_zoomLevel, fitScale=$fitScale, scroll=($scrollX, $scrollY) -> pixels($scrollX_pixels, $scrollY_pixels), viewport=(${W_viewport}x${H_viewport}), pageZoomed=(${W_page_zoomed}x${H_page_zoomed}), pageStart=(${x_page_start}, ${y_page_start})');
+    debugPrint('POSITION DEBUG: zoom=$_zoomLevel, fitScale=$fitScale, scroll=($scrollX, $scrollY), viewport=(${W_viewport}x${H_viewport}), pageZoomed=(${W_page_zoomed}x${H_page_zoomed}), pageStart=(${x_page_start}, ${y_page_start})');
 
     return Offset(x_page_start, y_page_start);
   }
@@ -2414,7 +2413,7 @@ class _EditorScreenState extends State<EditorScreen> {
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('v1.1.1 | ${widget.pdfName}'),
+          title: const Text('Sign'),
           actions: [
             if (_pdfHistoryPaths.isNotEmpty)
               IconButton(
@@ -2491,6 +2490,37 @@ class _EditorScreenState extends State<EditorScreen> {
                       scrollDirection: PdfScrollDirection.vertical,
                       enableTextSelection: false,
                       enableDocumentLinkAnnotation: false,
+                      onTap: (PdfGestureDetails details) {
+                        if (details.pageNumber == _currentPage) {
+                          final pageIndex = _currentPage - 1;
+                          if (pageIndex >= 0 && pageIndex < _pdfPageSizes.length) {
+                            final double pdfWidth = _pdfPageSizes[pageIndex].width;
+                            final double pdfHeight = _pdfPageSizes[pageIndex].height;
+                            final int rotation = _pdfPageRotations.length > pageIndex ? _pdfPageRotations[pageIndex] : 0;
+
+                            if (_signatureBytes != null) {
+                              setState(() {
+                                double x = details.pagePosition.dx;
+                                double y = details.pagePosition.dy;
+                                double rx = x / pdfWidth;
+                                double ry = y / pdfHeight;
+                                if (rotation == 90) {
+                                  rx = (pdfHeight - y) / pdfHeight;
+                                  ry = x / pdfWidth;
+                                } else if (rotation == 180) {
+                                  rx = (pdfWidth - x) / pdfWidth;
+                                  ry = (pdfHeight - y) / pdfHeight;
+                                } else if (rotation == 270) {
+                                  rx = y / pdfHeight;
+                                  ry = (pdfWidth - x) / pdfWidth;
+                                }
+                                _overlayRx = rx;
+                                _overlayRy = ry;
+                              });
+                            }
+                          }
+                        }
+                      },
                       onDocumentLoaded: (PdfDocumentLoadedDetails details) {
                         try {
                           final formFields = _pdfViewerController.getFormFields();
@@ -2533,6 +2563,7 @@ class _EditorScreenState extends State<EditorScreen> {
                         setState(() {
                           _pdfPageSizes = sizes;
                           _pdfPageRotations = rotations;
+                          _zoomLevel = 1.0;
                         });
                       },
                       onZoomLevelChanged: (PdfZoomDetails details) {
