@@ -643,7 +643,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       // Convert scanned JPEGs to a new PDF document
       final sf.PdfDocument targetDoc = sf.PdfDocument();
       for (final path in result.images) {
-        final file = File(path);
+        final file = path.startsWith('file://') ? File.fromUri(Uri.parse(path)) : File(path);
         if (await file.exists()) {
           final bytes = await file.readAsBytes();
           final section = targetDoc.sections!.add();
@@ -653,7 +653,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           final sf.PdfBitmap bitmap = sf.PdfBitmap(bytes);
           page.graphics.drawImage(
             bitmap,
-            Rect.fromLTWH(0, 0, page.size.width, page.size.height),
+            Rect.fromLTWH(0, 0, page.getClientSize().width, page.getClientSize().height),
           );
         }
       }
@@ -1566,6 +1566,11 @@ class _EditorScreenState extends State<EditorScreen> {
   void initState() {
     super.initState();
     _currentPdfBytes = widget.pdfBytes;
+    if (widget.pdfName.startsWith('scan_')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autosaveDocumentToArchive(widget.pdfBytes);
+      });
+    }
   }
 
   @override
@@ -1831,6 +1836,7 @@ class _EditorScreenState extends State<EditorScreen> {
     // 3. If edits are returned, save old state to history and update active PDF
     if (result != null) {
       await _pushToHistory(currentPdfBytes);
+      await _autosaveDocumentToArchive(result);
       _targetPageToRestore = _currentPage;
       setState(() {
         _currentPdfBytes = result;

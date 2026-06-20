@@ -55,6 +55,13 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
   late sf.PdfDocument _originalDoc;
   List<Uint8List?> _pageThumbnails = [];
 
+  File _getFileFromPath(String path) {
+    if (path.startsWith('file://')) {
+      return File.fromUri(Uri.parse(path));
+    }
+    return File(path);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -174,7 +181,7 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
 
       final List<PageItem> newItems = [];
       for (final path in result.images) {
-        final file = File(path);
+        final file = _getFileFromPath(path);
         if (await file.exists()) {
           final bytes = await file.readAsBytes();
           newItems.add(
@@ -299,23 +306,29 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
         final section = targetDoc.sections!.add();
         section.pageSettings.margins.all = 0;
 
+        final double width = item.size.width;
+        final double height = item.size.height;
+        if (width > height) {
+          section.pageSettings.size = Size(height, width);
+          section.pageSettings.orientation = sf.PdfPageOrientation.landscape;
+        } else {
+          section.pageSettings.size = Size(width, height);
+          section.pageSettings.orientation = sf.PdfPageOrientation.portrait;
+        }
+
         if (item.isBlank) {
-          section.pageSettings.size = item.size;
           page = section.pages.add();
         } else if (item.imageBytes != null) {
-          section.pageSettings.size = item.size;
           page = section.pages.add();
           
           final sf.PdfBitmap bitmap = sf.PdfBitmap(item.imageBytes!);
           page.graphics.drawImage(
             bitmap,
-            Rect.fromLTWH(0, 0, page.size.width, page.size.height),
+            Rect.fromLTWH(0, 0, page.getClientSize().width, page.getClientSize().height),
           );
         } else {
           final sourcePage = _originalDoc.pages[item.originalIndex];
           final template = sourcePage.createTemplate();
-          
-          section.pageSettings.size = sourcePage.size;
           
           page = section.pages.add();
           page.rotation = sourcePage.rotation;
