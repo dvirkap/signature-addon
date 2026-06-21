@@ -19,6 +19,8 @@ import 'page_editor.dart';
 import 'iap_service.dart';
 import 'premium_paywall.dart';
 import 'package:flutter_doc_scanner/flutter_doc_scanner.dart';
+import 'package:pdfx/pdfx.dart' as pdfx;
+import 'package:flutter/rendering.dart';
 
 final ValueNotifier<String> appLanguage = ValueNotifier('he');
 
@@ -240,6 +242,7 @@ class _MyAppState extends State<MyApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: appSupportedLanguages.keys.map((code) => Locale(code)).toList(),
+          themeMode: ThemeMode.system,
           theme: ThemeData(
             useMaterial3: true,
             fontFamily: 'Assistant',
@@ -247,6 +250,17 @@ class _MyAppState extends State<MyApp> {
               seedColor: const Color(0xFF4F46E5),
               primary: const Color(0xFF4F46E5),
               secondary: const Color(0xFF10B981),
+              brightness: Brightness.light,
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            fontFamily: 'Assistant',
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF4F46E5),
+              primary: const Color(0xFF6366F1),
+              secondary: const Color(0xFF34D399),
+              brightness: Brightness.dark,
             ),
           ),
           home: const DashboardScreen(),
@@ -660,85 +674,37 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     setState(() => _isLoading = true);
     try {
-      // אוסף כל ה-PDF bytes ממספר סריקות
-      final List<Uint8List> allScannedPdfs = [];
-
-      bool keepScanning = true;
-      while (keepScanning) {
-        final PdfScanResult? result = await FlutterDocScanner().getScannedDocumentAsPdf(
-          page: 20,
-        );
-        if (result == null) {
-          // המשתמש ביטל — אם כבר יש דפים, ממשיכים עם מה שיש
-          if (allScannedPdfs.isEmpty) {
-            setState(() => _isLoading = false);
-            return;
-          }
-          break;
-        }
-
-        debugPrint('SCANNER PDF URI: ${result.pdfUri}');
-        final String resolvedPath = await _resolvePath(result.pdfUri);
-        final File pdfFile = _getFileFromPath(resolvedPath);
-        if (await pdfFile.exists()) {
-          final Uint8List pdfBytes = await pdfFile.readAsBytes();
-          debugPrint('Read ${pdfBytes.length} bytes from scanned PDF');
-          allScannedPdfs.add(pdfBytes);
-        }
-
-        // שאל אם לסרוק עוד דפים
-        if (!mounted) break;
+      final PdfScanResult? result = await FlutterDocScanner().getScannedDocumentAsPdf(
+        page: 20,
+      );
+      if (result == null) {
         setState(() => _isLoading = false);
-        final bool? addMore = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => Directionality(
-            textDirection: appLanguage.value == 'he' ? TextDirection.rtl : TextDirection.ltr,
-            child: AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(children: [
-                const Icon(Icons.document_scanner, color: Color(0xFF4F46E5)),
-                const SizedBox(width: 8),
-                Text(getStr('scan_new_document')),
-              ]),
-              content: Text(getStr('add_more_pages_prompt')),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(getStr('done')),
-                ),
-                FilledButton.icon(
-                  icon: const Icon(Icons.add_a_photo),
-                  label: Text(getStr('scan_another')),
-                  onPressed: () => Navigator.pop(ctx, true),
-                ),
-              ],
-            ),
-          ),
-        );
-        if (addMore != true) {
-          keepScanning = false;
-        } else {
-          setState(() => _isLoading = true);
-        }
+        return;
       }
 
-      if (allScannedPdfs.isEmpty) return;
-      setState(() => _isLoading = true);
+      debugPrint('SCANNER PDF URI: ${result.pdfUri}');
+      final String resolvedPath = await _resolvePath(result.pdfUri);
+      final File pdfFile = _getFileFromPath(resolvedPath);
+      if (await pdfFile.exists()) {
+        final Uint8List pdfBytes = await pdfFile.readAsBytes();
+        debugPrint('Read ${pdfBytes.length} bytes from scanned PDF');
 
-      // מזג את כל ה-PDFs לאחד ושפר קריאות
-      final Uint8List finalPdf = await compute(_mergeAndEnhancePdfsIsolate, allScannedPdfs);
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final String docName = 'scan_$timestamp.pdf';
 
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final String docName = 'scan_$timestamp.pdf';
-
-      setState(() => _isLoading = false);
-      _openEditor(finalPdf, docName);
+        setState(() => _isLoading = false);
+        _openEditor(pdfBytes, docName);
+      } else {
+        setState(() => _isLoading = false);
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       debugPrint('Error in _scanNewDocument: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('שגיאה בסריקה: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('שגיאה בסריקה: $e')),
+        );
+      }
     }
   }
 
@@ -1198,10 +1164,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               children: [
                                 Text(
                                   getStr('recent_documents'),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 if (_recentFiles.isNotEmpty)
@@ -1221,20 +1187,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             _recentFiles.isEmpty
                                 ? Card(
                                     elevation: 0,
-                                    color: Colors.grey[50],
+                                    color: Theme.of(context).colorScheme.surfaceContainerLow,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      side: BorderSide(color: Colors.grey[200]!),
+                                      side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1)),
                                     ),
                                     child: Padding(
                                       padding: const EdgeInsets.all(24.0),
                                       child: Column(
                                         children: [
-                                          Icon(Icons.archive_outlined, size: 40, color: Colors.grey[400]),
+                                          Icon(Icons.archive_outlined, size: 40, color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)),
                                           const SizedBox(height: 12),
                                           Text(
                                             getStr('no_archived_files'),
-                                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                                             textAlign: TextAlign.center,
                                           ),
                                         ],
@@ -1258,10 +1224,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: ListTile(
-                                          leading: const CircleAvatar(
-                                            backgroundColor: Color(0xFFE0E7FF),
-                                            child: Icon(Icons.picture_as_pdf, color: Color(0xFF4F46E5), size: 20),
-                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                          leading: PdfThumbnailWidget(pdfFile: file),
                                           title: Text(
                                             name,
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
@@ -1270,7 +1234,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                           ),
                                           subtitle: Text(
                                             '$dateStr • $sizeStr',
-                                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                                           ),
                                           trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                                           onTap: () async {
@@ -1553,6 +1517,14 @@ class _SignatureManagerScreenState extends State<SignatureManagerScreen> {
   }
 }
 
+enum EditTool { signature, text, pencil, eraser }
+
+class DrawPoint {
+  final Offset offset;
+  final bool isNewSegment;
+  DrawPoint(this.offset, {this.isNewSegment = false});
+}
+
 class EditorScreen extends StatefulWidget {
   final Uint8List pdfBytes;
   final String pdfName;
@@ -1589,6 +1561,30 @@ class _EditorScreenState extends State<EditorScreen> {
   
   // Track the output file path for this session so we reuse/overwrite it
   String? _currentSessionSignedPath;
+
+  // Active Edit Tool
+  EditTool _activeTool = EditTool.signature;
+
+  // Pencil Settings
+  double _pencilSize = 4.0;
+  Color _pencilColor = Colors.black;
+
+  // Eraser Settings
+  double _eraserSize = 24.0;
+  bool _eraserIsSquare = true;
+  Color _eraserColor = Colors.white;
+
+  // Real-time Drawing/Eraser Overlay Coordinates (Rx, Ry relative to page)
+  final List<DrawPoint> _drawingPoints = [];
+  bool _isDrawing = false;
+  bool _isSamplingColor = false;
+  final GlobalKey _boundaryKey = GlobalKey();
+
+  // Horizontal Axis Lock variables
+  bool _isAxisLocked = false;
+  double? _lockedY; // visual Y locked value
+  Offset? _touchStartOffset;
+  Timer? _longPressTimer;
 
   Future<void> _autosaveDocumentToArchive(Uint8List bytes) async {
     try {
@@ -1646,6 +1642,554 @@ class _EditorScreenState extends State<EditorScreen> {
       }
     }
     _pdfHistoryPaths.clear();
+  }
+
+  void _onDrawingPanStart(DragStartDetails details) {
+    if (!mounted) return;
+
+    final localPos = details.localPosition;
+    _touchStartOffset = localPos;
+    _isDrawing = true;
+    _isAxisLocked = false;
+    _lockedY = null;
+
+    _longPressTimer?.cancel();
+    _longPressTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_isDrawing && mounted) {
+        setState(() {
+          _isAxisLocked = true;
+          _lockedY = _touchStartOffset?.dy;
+        });
+      }
+    });
+
+    _addPoint(localPos, isNewSegment: true);
+  }
+
+  void _onDrawingPanUpdate(DragUpdateDetails details) {
+    if (!_isDrawing || !mounted) return;
+
+    Offset localPos = details.localPosition;
+    if (_isAxisLocked && _lockedY != null) {
+      localPos = Offset(localPos.dx, _lockedY!);
+    }
+
+    _addPoint(localPos, isNewSegment: false);
+  }
+
+  Future<void> _onDrawingPanEnd(DragEndDetails details) async {
+    _longPressTimer?.cancel();
+    if (!_isDrawing) return;
+
+    setState(() {
+      _isDrawing = false;
+    });
+
+    if (_drawingPoints.isEmpty) return;
+
+    await _bakeDrawingToPdf();
+  }
+
+  void _addPoint(Offset localPos, {required bool isNewSegment}) {
+    final pageStart = _getPageStart();
+    final double W_page_zoomed = _getWPageZoomed();
+    final double H_page_zoomed = _getHPageZoomed();
+
+    final double rx = (localPos.dx - pageStart.dx) / W_page_zoomed;
+    final double ry = (localPos.dy - pageStart.dy) / H_page_zoomed;
+
+    final double clampedRx = rx.clamp(0.0, 1.0);
+    final double clampedRy = ry.clamp(0.0, 1.0);
+
+    setState(() {
+      _drawingPoints.add(DrawPoint(Offset(clampedRx, clampedRy), isNewSegment: isNewSegment));
+    });
+  }
+
+  Future<void> _bakeDrawingToPdf() async {
+    if (_drawingPoints.isEmpty) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      await _pushToHistory(currentPdfBytes);
+
+      final sf.PdfDocument doc = sf.PdfDocument(inputBytes: currentPdfBytes);
+      final int pageIdx = _currentPage - 1;
+
+      if (pageIdx >= 0 && pageIdx < doc.pages.count) {
+        final sf.PdfPage page = doc.pages[pageIdx];
+        final double pdfWidth = _pdfPageSizes[pageIdx].width;
+        final double pdfHeight = _pdfPageSizes[pageIdx].height;
+        final int rotation = _pdfPageRotations.length > pageIdx ? _pdfPageRotations[pageIdx] : 0;
+
+        final sf.PdfPath path = sf.PdfPath();
+        bool hasLines = false;
+        Offset? lastPt;
+
+        for (final pt in _drawingPoints) {
+          double rx = pt.offset.dx;
+          double ry = pt.offset.dy;
+
+          if (rotation == 90) {
+            final double temp = rx;
+            rx = ry;
+            ry = 1.0 - temp;
+          } else if (rotation == 180) {
+            rx = 1.0 - rx;
+            ry = 1.0 - ry;
+          } else if (rotation == 270) {
+            final double temp = rx;
+            rx = 1.0 - ry;
+            ry = temp;
+          }
+
+          final double px = rx * pdfWidth;
+          final double py = ry * pdfHeight;
+
+          if (pt.isNewSegment || lastPt == null) {
+            lastPt = Offset(px, py);
+          } else {
+            path.addLine(lastPt, Offset(px, py));
+            lastPt = Offset(px, py);
+            hasLines = true;
+          }
+        }
+
+        if (hasLines) {
+          final double scale = pdfWidth / _getWPageZoomed();
+          if (_activeTool == EditTool.eraser) {
+            final pen = sf.PdfPen(
+              sf.PdfColor(_eraserColor.red, _eraserColor.green, _eraserColor.blue),
+              width: _eraserSize * scale,
+            );
+            if (_eraserIsSquare) {
+              pen.lineCap = sf.PdfLineCap.square;
+              pen.lineJoin = sf.PdfLineJoin.miter;
+            } else {
+              pen.lineCap = sf.PdfLineCap.round;
+              pen.lineJoin = sf.PdfLineJoin.round;
+            }
+            page.graphics.drawPath(path, pen: pen);
+          } else {
+            final pen = sf.PdfPen(
+              sf.PdfColor(_pencilColor.red, _pencilColor.green, _pencilColor.blue),
+              width: _pencilSize * scale,
+            );
+            pen.lineCap = sf.PdfLineCap.round;
+            pen.lineJoin = sf.PdfLineJoin.round;
+            page.graphics.drawPath(path, pen: pen);
+          }
+        }
+      }
+
+      final List<int> saved = doc.saveSync();
+      doc.dispose();
+
+      await _autosaveDocumentToArchive(Uint8List.fromList(saved));
+      _targetPageToRestore = _currentPage;
+
+      setState(() {
+        _currentPdfBytes = Uint8List.fromList(saved);
+        _drawingPoints.clear();
+        _pdfUpdateCounter++;
+      });
+    } catch (e) {
+      debugPrint('Error baking drawing to PDF: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('שגיאה בשמירת הציור: $e')),
+      );
+    } finally {
+      setState(() {
+        _isProcessing = false;
+        _isDrawing = false;
+        _isAxisLocked = false;
+        _lockedY = null;
+      });
+    }
+  }
+
+  Future<void> _sampleColorAt(Offset localPos) async {
+    try {
+      final RenderRepaintBoundary? boundary = _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      
+      final image = await boundary.toImage();
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (byteData == null) return;
+
+      final int x = localPos.dx.toInt().clamp(0, image.width - 1);
+      final int y = localPos.dy.toInt().clamp(0, image.height - 1);
+      final int index = (y * image.width + x) * 4;
+
+      final int r = byteData.getUint8(index);
+      final int g = byteData.getUint8(index + 1);
+      final int b = byteData.getUint8(index + 2);
+
+      final Color sampled = Color.fromARGB(255, r, g, b);
+      
+      setState(() {
+        if (_activeTool == EditTool.eraser) {
+          _eraserColor = sampled;
+        } else {
+          _pencilColor = sampled;
+        }
+        _isSamplingColor = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(getStr('sample_color_success')),
+          backgroundColor: sampled,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error sampling color: $e');
+      setState(() {
+        _isSamplingColor = false;
+      });
+    }
+  }
+
+  void _showCustomColorDialog() {
+    Color selected = _pencilColor;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF0F172A),
+              title: Text(getStr('color_picker'), style: const TextStyle(color: Colors.white)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: selected,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white54, width: 2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildRgbSlider('R', selected.red, (val) {
+                    setDialogState(() {
+                      selected = selected.withRed(val);
+                    });
+                  }),
+                  _buildRgbSlider('G', selected.green, (val) {
+                    setDialogState(() {
+                      selected = selected.withGreen(val);
+                    });
+                  }),
+                  _buildRgbSlider('B', selected.blue, (val) {
+                    setDialogState(() {
+                      selected = selected.withBlue(val);
+                    });
+                  }),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(getStr('cancel'), style: const TextStyle(color: Colors.white70)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _pencilColor = selected;
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: Text(getStr('save'), style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRgbSlider(String label, int val, ValueChanged<int> onChanged) {
+    return Row(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Slider(
+            value: val.toDouble(),
+            min: 0,
+            max: 255,
+            activeColor: label == 'R' ? Colors.red : (label == 'G' ? Colors.green : Colors.blue),
+            inactiveColor: Colors.white24,
+            onChanged: (v) => onChanged(v.toInt()),
+          ),
+        ),
+        Text(val.toString(), style: const TextStyle(color: Colors.white70, fontSize: 11)),
+      ],
+    );
+  }
+
+  Widget _buildMainToolbar() {
+    final bool isProUnlocked = IapService.instance.isPro.value;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withOpacity(0.9),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildToolButton(EditTool.signature, Icons.gesture, getStr('add_signature_stamp')),
+          _buildToolButton(EditTool.text, Icons.text_fields, getStr('add_text_or_date')),
+          _buildToolButton(EditTool.pencil, Icons.edit, getStr('pencil'), isProOnly: true, isProUnlocked: isProUnlocked),
+          _buildToolButton(EditTool.eraser, Icons.cleaning_services, getStr('eraser'), isProOnly: true, isProUnlocked: isProUnlocked),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolButton(EditTool tool, IconData icon, String tooltip, {bool isProOnly = false, bool isProUnlocked = true}) {
+    final bool isActive = _activeTool == tool;
+    
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () {
+          if (isProOnly && !isProUnlocked) {
+            PremiumPaywall.show(context);
+          } else {
+            setState(() {
+              _activeTool = tool;
+              if (tool != EditTool.signature) {
+                _signatureBytes = null;
+                _signatureImage = null;
+              }
+              // Immediately show selection prompt if tapping the active icon again
+              if (isActive) {
+                if (tool == EditTool.signature) {
+                  _showSignatureSelectionSheet();
+                } else if (tool == EditTool.text) {
+                  _showTextOverlayDialog();
+                }
+              }
+            });
+          }
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF6366F1) : Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                icon,
+                color: isActive 
+                    ? Colors.white 
+                    : (isProOnly && !isProUnlocked ? const Color(0xFF38BDF8) : Colors.white70),
+                size: 24,
+              ),
+              if (isProOnly && !isProUnlocked)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF4F46E5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.star, size: 8, color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolSettingsPanel() {
+    final bool isPencil = _activeTool == EditTool.pencil;
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withOpacity(0.95),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isPencil ? Icons.line_weight : Icons.crop_square,
+                color: Colors.white70,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isPencil ? '${getStr('brush_size')}: ${_pencilSize.toInt()}' : '${getStr('eraser_size')}: ${_eraserSize.toInt()}',
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              Expanded(
+                child: Slider(
+                  value: isPencil ? _pencilSize : _eraserSize,
+                  min: isPencil ? 1.0 : 5.0,
+                  max: isPencil ? 20.0 : 60.0,
+                  activeColor: const Color(0xFF6366F1),
+                  inactiveColor: Colors.white24,
+                  onChanged: (val) {
+                    setState(() {
+                      if (isPencil) {
+                        _pencilSize = val;
+                      } else {
+                        _eraserSize = val;
+                      }
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          
+          if (isPencil) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ...[Colors.black, Colors.blue, Colors.red, Colors.yellow].map((color) {
+                  final bool isSelected = _pencilColor == color;
+                  return GestureDetector(
+                    onTap: () => setState(() => _pencilColor = color),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          if (isSelected)
+                            BoxShadow(
+                              color: color.withOpacity(0.5),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.colorize, color: Colors.white70, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _isSamplingColor = true;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(getStr('sample_color_desc')),
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
+                  },
+                  tooltip: getStr('sample_color'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.palette, color: Colors.white70, size: 20),
+                  onPressed: _showCustomColorDialog,
+                  tooltip: getStr('color_picker'),
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  '${getStr('eraser_shape')}:',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: Text(getStr('square')),
+                  selected: _eraserIsSquare,
+                  onSelected: (val) => setState(() => _eraserIsSquare = true),
+                  selectedColor: const Color(0xFF6366F1),
+                  backgroundColor: Colors.white10,
+                  labelStyle: TextStyle(color: _eraserIsSquare ? Colors.white : Colors.white70, fontSize: 11),
+                ),
+                const SizedBox(width: 6),
+                ChoiceChip(
+                  label: Text(getStr('circle')),
+                  selected: !_eraserIsSquare,
+                  onSelected: (val) => setState(() => _eraserIsSquare = false),
+                  selectedColor: const Color(0xFF6366F1),
+                  backgroundColor: Colors.white10,
+                  labelStyle: TextStyle(color: !_eraserIsSquare ? Colors.white : Colors.white70, fontSize: 11),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.colorize, color: Colors.white70, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _isSamplingColor = true;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(getStr('sample_color_desc')),
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
+                  },
+                  tooltip: getStr('sample_color'),
+                ),
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: _eraserColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white38),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   // PDF page sizes loaded on startup
@@ -2600,8 +3144,6 @@ class _EditorScreenState extends State<EditorScreen> {
       activeSigLeft = activeSigCenterX - activeSigWidth / 2;
       activeSigTop = activeSigCenterY - activeSigHeight / 2;
 
-      print('VISUAL OVERLAY DEBUG: rx=$_overlayRx, ry=$_overlayRy, rw=$_overlayRw, activeSigCenterX=$activeSigCenterX, activeSigCenterY=$activeSigCenterY, activeSigLeft=$activeSigLeft, activeSigTop=$activeSigTop, W_page_zoomed=$W_page_zoomed, H_page_zoomed=$H_page_zoomed, pageStart=$pageStart');
-
       // Toolbar positioning (centered horizontally above or below the signature)
       toolbarTop = activeSigTop - 54;
       if (toolbarTop < 10) {
@@ -2624,7 +3166,6 @@ class _EditorScreenState extends State<EditorScreen> {
                 onPressed: _undoLastSignature,
                 tooltip: getStr('undo_last'),
               ),
-            // כפתור סיבוב עמוד מהיר
             IconButton(
               icon: const Icon(Icons.rotate_right),
               onPressed: _rotateCurrentPage,
@@ -2667,26 +3208,11 @@ class _EditorScreenState extends State<EditorScreen> {
                 );
               },
             ),
-            IconButton(
-              icon: const Icon(Icons.text_fields),
-              onPressed: _showTextOverlayDialog,
-              tooltip: getStr('add_text_or_date'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.gesture),
-              onPressed: _showSignatureSelectionSheet,
-              tooltip: getStr('add_signature_stamp'),
-            ),
             if (_pdfHistoryPaths.isNotEmpty || _signatureBytes != null) ...[
               IconButton(
                 icon: const Icon(Icons.save),
                 onPressed: _isProcessing ? null : _saveDocument,
                 tooltip: getStr('save_document'),
-              ),
-              IconButton(
-                icon: const Icon(Icons.share),
-                onPressed: _isProcessing ? null : _saveAndShare,
-                tooltip: getStr('share_document'),
               ),
             ],
           ],
@@ -2694,17 +3220,18 @@ class _EditorScreenState extends State<EditorScreen> {
         body: SafeArea(
           child: Stack(
             children: [
-              // PDF Viewer wrapped in a NotificationListener to capture scroll updates
               NotificationListener<ScrollNotification>(
                 onNotification: (ScrollNotification notification) {
                   if (_signatureBytes != null) {
                     setState(() {});
                   }
-                  return false; // Allow the scroll notification to bubble up
+                  return false;
                 },
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return Container(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return RepaintBoundary(
+                      key: _boundaryKey,
+                      child: Container(
                         key: _pdfViewerKey,
                         child: Directionality(
                           textDirection: TextDirection.ltr,
@@ -2712,111 +3239,204 @@ class _EditorScreenState extends State<EditorScreen> {
                             currentPdfBytes,
                             key: ValueKey('pdf_viewer_$_pdfUpdateCounter'),
                             controller: _pdfViewerController,
-                      canShowScrollHead: false,
-                      pageLayoutMode: PdfPageLayoutMode.continuous,
-                      pageSpacing: 12,
-                      scrollDirection: PdfScrollDirection.vertical,
-                      enableTextSelection: false,
-                      enableDocumentLinkAnnotation: false,
-                      onTap: (PdfGestureDetails details) {
-                        if (details.pageNumber == _currentPage) {
-                          final pageIndex = _currentPage - 1;
-                          if (pageIndex >= 0 && pageIndex < _pdfPageSizes.length) {
-                            final double pdfWidth = _pdfPageSizes[pageIndex].width;
-                            final double pdfHeight = _pdfPageSizes[pageIndex].height;
-                            final int rotation = _pdfPageRotations.length > pageIndex ? _pdfPageRotations[pageIndex] : 0;
+                            canShowScrollHead: false,
+                            pageLayoutMode: PdfPageLayoutMode.continuous,
+                            pageSpacing: 12,
+                            scrollDirection: PdfScrollDirection.vertical,
+                            enableTextSelection: false,
+                            enableDocumentLinkAnnotation: false,
+                            onTap: (PdfGestureDetails details) {
+                              if (details.pageNumber == _currentPage) {
+                                final pageIndex = _currentPage - 1;
+                                if (pageIndex >= 0 && pageIndex < _pdfPageSizes.length) {
+                                  final double pdfWidth = _pdfPageSizes[pageIndex].width;
+                                  final double pdfHeight = _pdfPageSizes[pageIndex].height;
+                                  final int rotation = _pdfPageRotations.length > pageIndex ? _pdfPageRotations[pageIndex] : 0;
 
-                            if (_signatureBytes != null) {
-                              setState(() {
-                                double x = details.pagePosition.dx;
-                                double y = details.pagePosition.dy;
-                                double rx = x / pdfWidth;
-                                double ry = y / pdfHeight;
-                                if (rotation == 90) {
-                                  rx = (pdfHeight - y) / pdfHeight;
-                                  ry = x / pdfWidth;
-                                } else if (rotation == 180) {
-                                  rx = (pdfWidth - x) / pdfWidth;
-                                  ry = (pdfHeight - y) / pdfHeight;
-                                } else if (rotation == 270) {
-                                  rx = y / pdfHeight;
-                                  ry = (pdfWidth - x) / pdfWidth;
+                                  if (_signatureBytes != null) {
+                                    setState(() {
+                                      double x = details.pagePosition.dx;
+                                      double y = details.pagePosition.dy;
+                                      double rx = x / pdfWidth;
+                                      double ry = y / pdfHeight;
+                                      if (rotation == 90) {
+                                        rx = (pdfHeight - y) / pdfHeight;
+                                        ry = x / pdfWidth;
+                                      } else if (rotation == 180) {
+                                        rx = (pdfWidth - x) / pdfWidth;
+                                        ry = (pdfHeight - y) / pdfHeight;
+                                      } else if (rotation == 270) {
+                                        rx = y / pdfHeight;
+                                        ry = (pdfWidth - x) / pdfWidth;
+                                      }
+                                      _overlayRx = rx;
+                                      _overlayRy = ry;
+                                    });
+                                  }
                                 }
-                                _overlayRx = rx;
-                                _overlayRy = ry;
+                              }
+                            },
+                            onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+                              try {
+                                final formFields = _pdfViewerController.getFormFields();
+                                for (final field in formFields) {
+                                  field.readOnly = true;
+                                }
+                              } catch (e) {
+                                debugPrint('Error locking form fields: $e');
+                              }
+
+                              if (_targetPageToRestore != null) {
+                                final int targetPage = _targetPageToRestore!;
+                                _targetPageToRestore = null;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  _pdfViewerController.jumpToPage(targetPage);
+                                });
+                              }
+
+                              final List<Size> sizes = [];
+                              final List<int> rotations = [];
+                              for (int i = 0; i < details.document.pages.count; i++) {
+                                final page = details.document.pages[i];
+                                sizes.add(Size(page.size.width, page.size.height));
+                                int rotationAngle = 0;
+                                switch (page.rotation) {
+                                  case sf.PdfPageRotateAngle.rotateAngle90:
+                                    rotationAngle = 90;
+                                    break;
+                                  case sf.PdfPageRotateAngle.rotateAngle180:
+                                    rotationAngle = 180;
+                                    break;
+                                  case sf.PdfPageRotateAngle.rotateAngle270:
+                                    rotationAngle = 270;
+                                    break;
+                                  default:
+                                    rotationAngle = 0;
+                                }
+                                rotations.add(rotationAngle);
+                              }
+                              setState(() {
+                                _pdfPageSizes = sizes;
+                                _pdfPageRotations = rotations;
+                                _zoomLevel = 1.0;
                               });
-                            }
-                          }
-                        }
-                      },
-                      onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                        try {
-                          final formFields = _pdfViewerController.getFormFields();
-                          for (final field in formFields) {
-                            field.readOnly = true;
-                          }
-                        } catch (e) {
-                          debugPrint('Error locking form fields: $e');
-                        }
+                            },
+                            onZoomLevelChanged: (PdfZoomDetails details) {
+                              _zoomLevel = details.newZoomLevel;
+                              if (_signatureBytes != null) {
+                                setState(() {});
+                              }
+                            },
+                            onPageChanged: (PdfPageChangedDetails details) {
+                              if (_currentPage != details.newPageNumber) {
+                                setState(() {
+                                  _currentPage = details.newPageNumber;
+                                  _zoomLevel = 1.0;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
 
-                        if (_targetPageToRestore != null) {
-                          final int targetPage = _targetPageToRestore!;
-                          _targetPageToRestore = null;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _pdfViewerController.jumpToPage(targetPage);
-                          });
-                        }
-
-                        final List<Size> sizes = [];
-                        final List<int> rotations = [];
-                        for (int i = 0; i < details.document.pages.count; i++) {
-                          final page = details.document.pages[i];
-                          sizes.add(Size(page.size.width, page.size.height));
-                          int rotationAngle = 0;
-                          switch (page.rotation) {
-                            case sf.PdfPageRotateAngle.rotateAngle90:
-                              rotationAngle = 90;
-                              break;
-                            case sf.PdfPageRotateAngle.rotateAngle180:
-                              rotationAngle = 180;
-                              break;
-                            case sf.PdfPageRotateAngle.rotateAngle270:
-                              rotationAngle = 270;
-                              break;
-                            default:
-                              rotationAngle = 0;
-                          }
-                          rotations.add(rotationAngle);
-                        }
-                        setState(() {
-                          _pdfPageSizes = sizes;
-                          _pdfPageRotations = rotations;
-                          _zoomLevel = 1.0;
-                        });
-                      },
-                      onZoomLevelChanged: (PdfZoomDetails details) {
-                        _zoomLevel = details.newZoomLevel;
-                        if (_signatureBytes != null) {
-                          setState(() {});
-                        }
-                      },
-                      onPageChanged: (PdfPageChangedDetails details) {
-                        if (_currentPage != details.newPageNumber) {
-                          setState(() {
-                            _currentPage = details.newPageNumber;
-                            _zoomLevel = 1.0;
-                          });
-                        }
-                      },
+              // Active Drawing Layer (Pencil / Eraser)
+              if (_activeTool == EditTool.pencil || _activeTool == EditTool.eraser)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onPanStart: _onDrawingPanStart,
+                    onPanUpdate: _onDrawingPanUpdate,
+                    onPanEnd: _onDrawingPanEnd,
+                    child: CustomPaint(
+                      painter: DrawingPainter(
+                        points: _drawingPoints,
+                        pageStart: _getPageStart(),
+                        pageWidth: _getWPageZoomed(),
+                        pageHeight: _getHPageZoomed(),
+                        color: _pencilColor,
+                        strokeWidth: _activeTool == EditTool.pencil ? _pencilSize : _eraserSize,
+                        isEraser: _activeTool == EditTool.eraser,
+                        eraserIsSquare: _eraserIsSquare,
+                        isAxisLocked: _isAxisLocked,
+                        lockedY: _lockedY,
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
+                ),
 
-        // Active Signature Overlay (Editable)
-        if (_signatureBytes != null && _signatureImage != null)
+              // Color Sampling Overlay
+              if (_isSamplingColor)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTapDown: (details) {
+                      _sampleColorAt(details.localPosition);
+                    },
+                    child: Container(
+                      color: Colors.black26,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.colorize, color: Colors.white, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                getStr('sample_color_desc'),
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Horizontal Axis Lock Indicator
+              if (_isAxisLocked && _drawingPoints.isNotEmpty)
+                Positioned(
+                  left: () {
+                    final pageStart = _getPageStart();
+                    final double fx = pageStart.dx + _drawingPoints.last.offset.dx * W_page_zoomed;
+                    return (fx - 30).clamp(10.0, MediaQuery.of(context).size.width - 70.0);
+                  }(),
+                  top: () {
+                    final pageStart = _getPageStart();
+                    final double fy = pageStart.dy + _drawingPoints.last.offset.dy * H_page_zoomed;
+                    return (fy - 60).clamp(10.0, MediaQuery.of(context).size.height - 100.0);
+                  }(),
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1), // Indigo
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock, color: Colors.white, size: 14),
+                          SizedBox(width: 4),
+                          Icon(Icons.swap_horiz, color: Colors.white, size: 14),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Active Signature Overlay (Editable)
+              if (_signatureBytes != null && _signatureImage != null)
                 Positioned(
                   left: activeSigLeft - 10,
                   top: activeSigTop - 10,
@@ -2845,13 +3465,11 @@ class _EditorScreenState extends State<EditorScreen> {
                       angle: _overlayRotation,
                       child: Stack(
                         children: [
-                          // Base container that defines Stack bounds and handles hit testing correctly
                           Container(
                             width: activeSigWidth + 20,
                             height: activeSigHeight + 50,
                             color: Colors.transparent,
                           ),
-                          // Signature image positioned inside Stack bounds
                           Positioned(
                             left: 10,
                             top: 10,
@@ -2890,7 +3508,6 @@ class _EditorScreenState extends State<EditorScreen> {
                               ),
                             ),
                           ),
-                          // Resize/Scale handle at bottom-right
                           Positioned(
                             left: activeSigWidth,
                             top: activeSigHeight,
@@ -2957,7 +3574,6 @@ class _EditorScreenState extends State<EditorScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Delete
                         IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                           tooltip: getStr('delete_signature'),
@@ -2970,7 +3586,6 @@ class _EditorScreenState extends State<EditorScreen> {
                           },
                         ),
                         Container(height: 16, width: 1, color: Colors.grey[300]),
-                        // Edit Caption
                         IconButton(
                           icon: const Icon(Icons.closed_caption_outlined, color: Color(0xFF4F46E5), size: 20),
                           tooltip: getStr('edit_caption'),
@@ -2984,7 +3599,6 @@ class _EditorScreenState extends State<EditorScreen> {
                           },
                         ),
                         Container(height: 16, width: 1, color: Colors.grey[300]),
-                        // Rotate
                         IconButton(
                           icon: const Icon(Icons.rotate_right, color: Color(0xFF4F46E5), size: 20),
                           tooltip: 'סובב 90°',
@@ -2995,7 +3609,6 @@ class _EditorScreenState extends State<EditorScreen> {
                           },
                         ),
                         Container(height: 16, width: 1, color: Colors.grey[300]),
-                        // Confirm
                         IconButton(
                           icon: const Icon(Icons.check, color: Colors.green, size: 20),
                           tooltip: getStr('save'),
@@ -3009,7 +3622,7 @@ class _EditorScreenState extends State<EditorScreen> {
               // Floating Page Number Indicator
               if (_pdfPageSizes.isNotEmpty)
                 Positioned(
-                  bottom: 24,
+                  bottom: 20 + (_activeTool == EditTool.pencil || _activeTool == EditTool.eraser ? 150 : 70),
                   left: 24,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -3032,6 +3645,23 @@ class _EditorScreenState extends State<EditorScreen> {
                     ),
                   ),
                 ),
+
+              // Floating Main Editor Toolbar
+              Positioned(
+                bottom: 20,
+                left: 20,
+                right: 20,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_activeTool == EditTool.pencil || _activeTool == EditTool.eraser) ...[
+                      _buildToolSettingsPanel(),
+                      const SizedBox(height: 10),
+                    ],
+                    _buildMainToolbar(),
+                  ],
+                ),
+              ),
 
               if (_isProcessing)
                 Container(
@@ -3851,10 +4481,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFE0E7FF),
-                            child: Icon(Icons.picture_as_pdf, color: Color(0xFF4F46E5)),
-                          ),
+                          leading: PdfThumbnailWidget(pdfFile: file),
                           title: Text(
                             name,
                             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -3937,5 +4564,272 @@ class PdfReaderScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class PdfThumbnailWidget extends StatefulWidget {
+  final File pdfFile;
+  final double width;
+  final double height;
+
+  const PdfThumbnailWidget({
+    super.key,
+    required this.pdfFile,
+    this.width = 45,
+    this.height = 60,
+  });
+
+  @override
+  State<PdfThumbnailWidget> createState() => _PdfThumbnailWidgetState();
+}
+
+class _PdfThumbnailWidgetState extends State<PdfThumbnailWidget> {
+  String? _thumbnailPath;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant PdfThumbnailWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pdfFile.path != widget.pdfFile.path) {
+      _generateThumbnail();
+    }
+  }
+
+  Future<void> _generateThumbnail() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final cacheDir = await getTemporaryDirectory();
+      final String fileName = widget.pdfFile.path.split('/').last.split('\\').last;
+      
+      // Checking modification time if file exists to prevent caching stale thumbnails
+      int mtime = 0;
+      if (await widget.pdfFile.exists()) {
+        mtime = widget.pdfFile.lastModifiedSync().millisecondsSinceEpoch;
+      }
+      
+      final String thumbPath = '${cacheDir.path}/thumb_${fileName}_$mtime.png';
+      final thumbFile = File(thumbPath);
+
+      if (await thumbFile.exists()) {
+        if (mounted) {
+          setState(() {
+            _thumbnailPath = thumbPath;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Clean old thumbnails of same file
+      try {
+        final list = cacheDir.listSync();
+        for (var item in list) {
+          if (item is File && item.path.contains('thumb_$fileName')) {
+            await item.delete();
+          }
+        }
+      } catch (e) {
+        debugPrint('Error cleaning old thumbnails: $e');
+      }
+
+      if (await widget.pdfFile.exists()) {
+        final pdfxDoc = await pdfx.PdfDocument.openFile(widget.pdfFile.path);
+        if (pdfxDoc.pagesCount > 0) {
+          final page = await pdfxDoc.getPage(1);
+          final pageImage = await page.render(
+            width: page.width * 1.5,
+            height: page.height * 1.5,
+            format: pdfx.PdfPageImageFormat.png,
+          );
+          if (pageImage != null && pageImage.bytes != null) {
+            await thumbFile.writeAsBytes(pageImage.bytes);
+            if (mounted) {
+              setState(() {
+                _thumbnailPath = thumbPath;
+                _isLoading = false;
+              });
+            }
+          } else {
+            _hasError = true;
+          }
+          await page.close();
+        } else {
+          _hasError = true;
+        }
+        await pdfxDoc.close();
+      } else {
+        _hasError = true;
+      }
+    } catch (e) {
+      debugPrint('Error generating thumbnail: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          ),
+        ),
+      );
+    }
+
+    if (_hasError || _thumbnailPath == null) {
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFE2),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Icon(Icons.picture_as_pdf, color: Colors.red, size: 20),
+      );
+    }
+
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 3,
+            offset: const Offset(0, 1.5),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.file(
+          File(_thumbnailPath!),
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+}
+
+class DrawingPainter extends CustomPainter {
+  final List<DrawPoint> points;
+  final Offset pageStart;
+  final double pageWidth;
+  final double pageHeight;
+  final Color color;
+  final double strokeWidth;
+  final bool isEraser;
+  final bool eraserIsSquare;
+  final bool isAxisLocked;
+  final double? lockedY;
+
+  DrawingPainter({
+    required this.points,
+    required this.pageStart,
+    required this.pageWidth,
+    required this.pageHeight,
+    required this.color,
+    required this.strokeWidth,
+    required this.isEraser,
+    required this.eraserIsSquare,
+    required this.isAxisLocked,
+    this.lockedY,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty && (!isAxisLocked || lockedY == null)) return;
+
+    final paint = Paint()
+      ..color = isEraser ? Colors.white : color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    if (isEraser && eraserIsSquare) {
+      paint.strokeCap = StrokeCap.square;
+      paint.strokeJoin = StrokeJoin.miter;
+    } else {
+      paint.strokeCap = StrokeCap.round;
+      paint.strokeJoin = StrokeJoin.round;
+    }
+
+    // 1. Draw points
+    Path? path;
+    for (int i = 0; i < points.length; i++) {
+      final pt = points[i];
+      final double px = pageStart.dx + pt.offset.dx * pageWidth;
+      final double py = pageStart.dy + pt.offset.dy * pageHeight;
+
+      if (pt.isNewSegment || path == null) {
+        if (path != null) {
+          canvas.drawPath(path, paint);
+        }
+        path = Path()..moveTo(px, py);
+      } else {
+        path.lineTo(px, py);
+      }
+    }
+    if (path != null) {
+      canvas.drawPath(path, paint);
+    }
+
+    // 2. Draw horizontal lock line (dashed) if active
+    if (isAxisLocked && lockedY != null) {
+      final dashedPaint = Paint()
+        ..color = const Color(0xFF6366F1) // Indigo accent
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke;
+
+      final double startX = pageStart.dx.clamp(0.0, size.width);
+      final double endX = (pageStart.dx + pageWidth).clamp(0.0, size.width);
+      final double y = lockedY!;
+
+      const double dashWidth = 5.0;
+      const double dashSpace = 5.0;
+      double currentX = startX;
+
+      while (currentX < endX) {
+        canvas.drawLine(
+          Offset(currentX, y),
+          Offset((currentX + dashWidth).clamp(startX, endX), y),
+          dashedPaint,
+        );
+        currentX += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant DrawingPainter oldDelegate) {
+    return true;
   }
 }
