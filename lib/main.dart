@@ -825,7 +825,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${getStr('version')} 1.2.1',
+                    '${getStr('version')} 1.3.0',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 12),
@@ -844,9 +844,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                   const SizedBox(height: 12),
                   _buildChangelogItem(
+                    '1.3.0',
+                    getStr('version_changelog_1_3_0'),
+                    isLatest: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildChangelogItem(
                     '1.2.1',
                     getStr('version_changelog_1_2_1'),
-                    isLatest: true,
+                    isLatest: false,
                   ),
                   const SizedBox(height: 12),
                   _buildChangelogItem(
@@ -1072,7 +1078,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      '${getStr('version')} 1.2.1',
+                      '${getStr('version')} 1.3.0',
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ),
@@ -1579,6 +1585,7 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _isDrawing = false;
   bool _isSamplingColor = false;
   final GlobalKey _boundaryKey = GlobalKey();
+  final Set<int> _activePointerIds = {};
 
   // Horizontal Axis Lock variables
   bool _isAxisLocked = false;
@@ -1865,8 +1872,8 @@ class _EditorScreenState extends State<EditorScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
                       color: selected,
                       shape: BoxShape.circle,
@@ -1874,21 +1881,14 @@ class _EditorScreenState extends State<EditorScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildRgbSlider('R', selected.red, (val) {
-                    setDialogState(() {
-                      selected = selected.withRed(val);
-                    });
-                  }),
-                  _buildRgbSlider('G', selected.green, (val) {
-                    setDialogState(() {
-                      selected = selected.withGreen(val);
-                    });
-                  }),
-                  _buildRgbSlider('B', selected.blue, (val) {
-                    setDialogState(() {
-                      selected = selected.withBlue(val);
-                    });
-                  }),
+                  ColorWheelPicker(
+                    initialColor: selected,
+                    onColorChanged: (color) {
+                      setDialogState(() {
+                        selected = color;
+                      });
+                    },
+                  ),
                 ],
               ),
               actions: [
@@ -1913,23 +1913,41 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-  Widget _buildRgbSlider(String label, int val, ValueChanged<int> onChanged) {
-    return Row(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Slider(
-            value: val.toDouble(),
-            min: 0,
-            max: 255,
-            activeColor: label == 'R' ? Colors.red : (label == 'G' ? Colors.green : Colors.blue),
-            inactiveColor: Colors.white24,
-            onChanged: (v) => onChanged(v.toInt()),
+  Widget _buildEraserIcon(bool isActive, bool isProOnly, bool isProUnlocked) {
+    final Color baseColor = isActive 
+        ? Colors.white 
+        : (isProOnly && !isProUnlocked ? const Color(0xFF38BDF8) : Colors.white70);
+    
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Center(
+        child: Transform.rotate(
+          angle: -0.5,
+          child: Container(
+            width: 18,
+            height: 11,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: baseColor, width: 1.8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    color: baseColor.withOpacity(0.4),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    color: Colors.transparent,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        Text(val.toString(), style: const TextStyle(color: Colors.white70, fontSize: 11)),
-      ],
+      ),
     );
   }
 
@@ -1956,13 +1974,20 @@ class _EditorScreenState extends State<EditorScreen> {
           _buildToolButton(EditTool.signature, Icons.gesture, getStr('add_signature_stamp')),
           _buildToolButton(EditTool.text, Icons.text_fields, getStr('add_text_or_date')),
           _buildToolButton(EditTool.pencil, Icons.edit, getStr('pencil'), isProOnly: true, isProUnlocked: isProUnlocked),
-          _buildToolButton(EditTool.eraser, Icons.cleaning_services, getStr('eraser'), isProOnly: true, isProUnlocked: isProUnlocked),
+          _buildToolButton(
+            EditTool.eraser, 
+            Icons.cleaning_services, 
+            getStr('eraser'), 
+            isProOnly: true, 
+            isProUnlocked: isProUnlocked,
+            customIcon: _buildEraserIcon(_activeTool == EditTool.eraser, true, isProUnlocked),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildToolButton(EditTool tool, IconData icon, String tooltip, {bool isProOnly = false, bool isProUnlocked = true}) {
+  Widget _buildToolButton(EditTool tool, IconData icon, String tooltip, {bool isProOnly = false, bool isProUnlocked = true, Widget? customIcon}) {
     final bool isActive = _activeTool == tool;
     
     return Tooltip(
@@ -1973,13 +1998,21 @@ class _EditorScreenState extends State<EditorScreen> {
             PremiumPaywall.show(context);
           } else {
             setState(() {
-              _activeTool = tool;
-              if (tool != EditTool.signature) {
-                _signatureBytes = null;
-                _signatureImage = null;
-              }
-              // Immediately show selection prompt if tapping the active icon again
               if (isActive) {
+                // If tapping an active pencil or eraser, toggle back to signature (default mode)
+                if (tool == EditTool.pencil || tool == EditTool.eraser) {
+                  _activeTool = EditTool.signature;
+                } else if (tool == EditTool.signature) {
+                  _showSignatureSelectionSheet();
+                } else if (tool == EditTool.text) {
+                  _showTextOverlayDialog();
+                }
+              } else {
+                _activeTool = tool;
+                if (tool != EditTool.signature) {
+                  _signatureBytes = null;
+                  _signatureImage = null;
+                }
                 if (tool == EditTool.signature) {
                   _showSignatureSelectionSheet();
                 } else if (tool == EditTool.text) {
@@ -1999,7 +2032,7 @@ class _EditorScreenState extends State<EditorScreen> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Icon(
+              customIcon ?? Icon(
                 icon,
                 color: isActive 
                     ? Colors.white 
@@ -3346,10 +3379,63 @@ class _EditorScreenState extends State<EditorScreen> {
               // Active Drawing Layer (Pencil / Eraser)
               if (_activeTool == EditTool.pencil || _activeTool == EditTool.eraser)
                 Positioned.fill(
-                  child: GestureDetector(
-                    onPanStart: _onDrawingPanStart,
-                    onPanUpdate: _onDrawingPanUpdate,
-                    onPanEnd: _onDrawingPanEnd,
+                  child: Listener(
+                    onPointerDown: (PointerDownEvent event) {
+                      _activePointerIds.add(event.pointer);
+                      if (_activePointerIds.length == 1) {
+                        _onDrawingPanStart(DragStartDetails(
+                          localPosition: event.localPosition,
+                          globalPosition: event.position,
+                        ));
+                      } else {
+                        if (_isDrawing) {
+                          _longPressTimer?.cancel();
+                          setState(() {
+                            _isDrawing = false;
+                            _isAxisLocked = false;
+                            _lockedY = null;
+                            _drawingPoints.clear();
+                          });
+                        }
+                      }
+                    },
+                    onPointerMove: (PointerMoveEvent event) {
+                      if (_activePointerIds.length == 1 && _isDrawing) {
+                        _onDrawingPanUpdate(DragUpdateDetails(
+                          localPosition: event.localPosition,
+                          globalPosition: event.position,
+                          delta: event.delta,
+                        ));
+                      } else {
+                        if (_isDrawing) {
+                          _longPressTimer?.cancel();
+                          setState(() {
+                            _isDrawing = false;
+                            _isAxisLocked = false;
+                            _lockedY = null;
+                            _drawingPoints.clear();
+                          });
+                        }
+                      }
+                    },
+                    onPointerUp: (PointerUpEvent event) {
+                      _activePointerIds.remove(event.pointer);
+                      if (_isDrawing && _activePointerIds.isEmpty) {
+                        _onDrawingPanEnd(DragEndDetails());
+                      }
+                    },
+                    onPointerCancel: (PointerCancelEvent event) {
+                      _activePointerIds.clear();
+                      if (_isDrawing) {
+                        _longPressTimer?.cancel();
+                        setState(() {
+                          _isDrawing = false;
+                          _isAxisLocked = false;
+                          _lockedY = null;
+                          _drawingPoints.clear();
+                        });
+                      }
+                    },
                     child: CustomPaint(
                       painter: DrawingPainter(
                         points: _drawingPoints,
@@ -3673,6 +3759,166 @@ class _EditorScreenState extends State<EditorScreen> {
         ),
       ),
     );
+  }
+}
+
+class ColorWheelPicker extends StatefulWidget {
+  final Color initialColor;
+  final ValueChanged<Color> onColorChanged;
+
+  const ColorWheelPicker({super.key, required this.initialColor, required this.onColorChanged});
+
+  @override
+  State<ColorWheelPicker> createState() => _ColorWheelPickerState();
+}
+
+class _ColorWheelPickerState extends State<ColorWheelPicker> {
+  late double _hue;
+  late double _saturation;
+  late double _value;
+
+  @override
+  void initState() {
+    super.initState();
+    final hsv = HSVColor.fromColor(widget.initialColor);
+    _hue = hsv.hue;
+    _saturation = hsv.saturation;
+    _value = hsv.value;
+  }
+
+  void _updateColorFromOffset(Offset localOffset, Size size) {
+    final double centerX = size.width / 2;
+    final double centerY = size.height / 2;
+    final double dx = localOffset.dx - centerX;
+    final double dy = localOffset.dy - centerY;
+    
+    final double radius = min(centerX, centerY);
+    final double r = sqrt(dx * dx + dy * dy);
+
+    if (r > 0) {
+      final double theta = atan2(dy, dx);
+      double hue = theta * 180 / pi;
+      if (hue < 0) hue += 360;
+
+      setState(() {
+        _hue = hue;
+        _saturation = (r / radius).clamp(0.0, 1.0);
+      });
+      _notifyColorChange();
+    }
+  }
+
+  void _notifyColorChange() {
+    widget.onColorChanged(HSVColor.fromAHSV(1.0, _hue, _saturation, _value).toColor());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onPanUpdate: (details) => _updateColorFromOffset(details.localPosition, const Size(200, 200)),
+          onPanStart: (details) => _updateColorFromOffset(details.localPosition, const Size(200, 200)),
+          onTapDown: (details) => _updateColorFromOffset(details.localPosition, const Size(200, 200)),
+          child: SizedBox(
+            width: 200,
+            height: 200,
+            child: CustomPaint(
+              painter: ColorWheelPainter(hue: _hue, saturation: _saturation),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Icon(Icons.brightness_low, color: Colors.white70, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Slider(
+                value: _value,
+                min: 0.0,
+                max: 1.0,
+                activeColor: Colors.white,
+                inactiveColor: Colors.white24,
+                onChanged: (val) {
+                  setState(() {
+                    _value = val;
+                  });
+                  _notifyColorChange();
+                },
+              ),
+            ),
+            const Icon(Icons.brightness_high, color: Colors.white, size: 16),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class ColorWheelPainter extends CustomPainter {
+  final double hue;
+  final double saturation;
+
+  ColorWheelPainter({required this.hue, required this.saturation});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double centerX = size.width / 2;
+    final double centerY = size.height / 2;
+    final double radius = min(centerX, centerY);
+    final Offset center = Offset(centerX, centerY);
+
+    final List<Color> colors = [
+      const Color(0xFFFF0000),
+      const Color(0xFFFFFF00),
+      const Color(0xFF00FF00),
+      const Color(0xFF00FFFF),
+      const Color(0xFF0000FF),
+      const Color(0xFFFF00FF),
+      const Color(0xFFFF0000),
+    ];
+
+    final Paint wheelPaint = Paint()
+      ..shader = SweepGradient(colors: colors).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, radius, wheelPaint);
+
+    final Paint saturationPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [Colors.white, Colors.white.withOpacity(0.0)],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, radius, saturationPaint);
+
+    final double angle = hue * pi / 180;
+    final double dist = saturation * radius;
+    final Offset selectorOffset = Offset(
+      centerX + dist * cos(angle),
+      centerY + dist * sin(angle),
+    );
+
+    final Paint selectorPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
+    canvas.drawCircle(selectorOffset, 8, selectorPaint);
+
+    final Paint selectorShadow = Paint()
+      ..color = Colors.black45
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawCircle(selectorOffset, 9, selectorShadow);
+  }
+
+  @override
+  bool shouldRepaint(covariant ColorWheelPainter oldDelegate) {
+    return oldDelegate.hue != hue || oldDelegate.saturation != saturation;
   }
 }
 
