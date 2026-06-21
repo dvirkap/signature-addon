@@ -32,6 +32,28 @@ class MainActivity : FlutterActivity() {
                 result.success(intentData)
                 // Consume the intent data so it doesn't open repeatedly
                 intentData = null
+            } else if (call.method == "resolveContentUri") {
+                val uriString = call.argument<String>("uri")
+                if (uriString != null) {
+                    try {
+                        val uri = Uri.parse(uriString)
+                        val rawName = getFileName(uri) ?: "temp_scan.jpg"
+                        val dotIndex = rawName.lastIndexOf('.')
+                        val name = if (dotIndex != -1) rawName.substring(0, dotIndex) else rawName
+                        val ext = if (dotIndex != -1) rawName.substring(dotIndex) else ".jpg"
+                        val fileName = "${name}_${System.currentTimeMillis()}$ext"
+                        val file = copyUriToTempFile(uri, fileName)
+                        if (file != null) {
+                            result.success(file.absolutePath)
+                        } else {
+                            result.error("COPY_FAILED", "Failed to copy URI to temp file", null)
+                        }
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                } else {
+                    result.error("INVALID_ARGUMENT", "URI string is null", null)
+                }
             } else {
                 result.notImplemented()
             }

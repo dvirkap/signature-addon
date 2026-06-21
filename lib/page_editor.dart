@@ -8,6 +8,7 @@ import 'document_scan_editor.dart';
 import 'package:pdfx/pdfx.dart' as pdfx;
 import 'package:flutter_doc_scanner/flutter_doc_scanner.dart';
 import 'premium_paywall.dart';
+import 'package:flutter/services.dart';
 
 class PageItem {
   final int originalIndex; // -1 if newly added
@@ -60,6 +61,27 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
       return File.fromUri(Uri.parse(path));
     }
     return File(path);
+  }
+
+  Future<String> _resolvePath(String path) async {
+    if (path.startsWith('content://')) {
+      try {
+        const channel = MethodChannel('com.example.signature_addon/intent');
+        final String? resolvedPath = await channel.invokeMethod('resolveContentUri', {'uri': path});
+        if (resolvedPath != null) {
+          return resolvedPath;
+        }
+      } catch (e) {
+        debugPrint('Error resolving content URI: $e');
+      }
+    } else if (path.startsWith('file://')) {
+      try {
+        return Uri.parse(path).toFilePath();
+      } catch (e) {
+        debugPrint('Error parsing file URI: $e');
+      }
+    }
+    return path;
   }
 
   @override
@@ -164,55 +186,98 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
     });
   }
 
-  // Scan one or more new pages via native flutter_doc_scanner
-  Future<void> _scanNewPages(int index) async {
+  // Scan one or more new pages via native flutter_doc_scanner (PDF mode)
+  Future<void> _scanNewPages(int insertIndex) async {
     if (!widget.isPro) {
       PremiumPaywall.show(context);
       return;
     }
 
     try {
-      final ImageScanResult? result = await FlutterDocScanner().getScannedDocumentAsImages(
+      // Use PDF scanning mode for reliable results on Android
+      final PdfScanResult? result = await FlutterDocScanner().getScannedDocumentAsPdf(
         page: 20,
       );
-      if (result == null || result.images.isEmpty) {
+      if (result == null) return;
+
+      debugPrint('SCANNER PDF URI IN EDITOR: ${result.pdfUri}');
+
+      // Resolve the content:// URI to a local file path
+      final String resolvedPath = await _resolvePath(result.pdfUri);
+      final File pdfFile = _getFileFromPath(resolvedPath);
+      final bool exists = await pdfFile.exists();
+      debugPrint('Resolved editor PDF path: ${pdfFile.path}, exists: $exists');
+
+      if (!exists) {
+        debugPrint('Warning: scanned PDF not found');
         return;
       }
 
+      final Uint8List pdfBytes = await pdfFile.readAsBytes();
+      debugPrint('Read ${pdfBytes.length} bytes from scanned PDF in editor');
+
+      // Open the scanned PDF and render each page as an image
+      final pdfxDoc = await pdfx.PdfDocument.openData(pdfBytes);
+      final int pageCount = pdfxDoc.pagesCount;
+      debugPrint('Scanned PDF has $pageCount pages');
+
       final List<PageItem> newItems = [];
-      for (final path in result.images) {
-        final file = _getFileFromPath(path);
-        if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          newItems.add(
-            PageItem(
+      for (int i = 1; i <= pageCount; i++) {
+        try {
+          final pdfxPage = await pdfxDoc.getPage(i);
+          final double pgW = pdfxPage.width;
+          final double pgH = pdfxPage.height;
+
+          // Render at 2x for quality
+          final pageImage = await pdfxPage.render(
+            width: pgW * 2,
+            height: pgH * 2,
+            format: pdfx.PdfPageImageFormat.png,
+          );
+          await pdfxPage.close();
+
+          if (pageImage?.bytes != null) {
+            final Uint8List imgBytes = pageImage!.bytes!;
+            final Size pageSize = (pgW > pgH)
+                ? const Size(842, 595)
+                : const Size(595, 842);
+
+            newItems.add(PageItem(
               originalIndex: -1,
-              imageBytes: bytes,
-              size: const Size(595, 842),
-              scanOriginalBytes: bytes,
+              imageBytes: imgBytes,
+              size: pageSize,
+              scanOriginalBytes: imgBytes,
               scanCorners: const [
-                Offset(0.0, 0.0),
-                Offset(1.0, 0.0),
-                Offset(0.0, 1.0),
-                Offset(1.0, 1.0),
+                Offset(0.05, 0.05),
+                Offset(0.95, 0.05),
+                Offset(0.05, 0.95),
+                Offset(0.95, 0.95),
               ],
               scanFilter: 'original',
               scanRotation: 0,
-            ),
-          );
+            ));
+            debugPrint('Added page $i from scanned PDF (${imgBytes.length} bytes)');
+          }
+        } catch (pageErr) {
+          debugPrint('Error rendering page $i: $pageErr');
         }
       }
+      await pdfxDoc.close();
 
-      if (newItems.isNotEmpty) {
-        if (!mounted) return;
+      if (newItems.isNotEmpty && mounted) {
         setState(() {
           for (int i = 0; i < newItems.length; i++) {
-            _pages.insert(index + i, newItems[i]);
+            _pages.insert(insertIndex + i, newItems[i]);
           }
         });
       }
-    } catch (e) {
-      debugPrint('Error scanning pages: $e');
+    } catch (e, stack) {
+      debugPrint('Error scanning pages: $e\n$stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('שגיאה בסריקה: $e')),
+        );
+      }
     }
   }
 
@@ -238,13 +303,20 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
 
       if (result != null) {
         if (!mounted) return;
+        final sf.PdfBitmap bitmap = sf.PdfBitmap(result.processedBytes);
+        final double imgW = bitmap.width.toDouble();
+        final double imgH = bitmap.height.toDouble();
+        final Size pageSize = (imgW > imgH)
+            ? const Size(842, 595)
+            : const Size(595, 842);
+
         setState(() {
           _pages.insert(
             index,
             PageItem(
               originalIndex: -1,
               imageBytes: result.processedBytes,
-              size: const Size(595, 842),
+              size: pageSize,
               scanOriginalBytes: result.originalBytes,
               scanCorners: result.corners,
               scanFilter: result.filter,
@@ -271,13 +343,20 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
 
     if (result != null) {
       if (!mounted) return;
+      final sf.PdfBitmap bitmap = sf.PdfBitmap(result.processedBytes);
+      final double imgW = bitmap.width.toDouble();
+      final double imgH = bitmap.height.toDouble();
+      final Size pageSize = (imgW > imgH)
+          ? const Size(842, 595)
+          : const Size(595, 842);
+
       setState(() {
         _pages[index] = PageItem(
           originalIndex: item.originalIndex,
           rotationDegrees: item.rotationDegrees,
           isBlank: item.isBlank,
           imageBytes: result.processedBytes,
-          size: item.size,
+          size: pageSize,
           scanOriginalBytes: result.originalBytes,
           scanCorners: result.corners,
           scanFilter: result.filter,
@@ -302,25 +381,39 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
       final sf.PdfDocument targetDoc = sf.PdfDocument();
 
       for (final item in _pages) {
-        sf.PdfPage page;
         final section = targetDoc.sections!.add();
         section.pageSettings.margins.all = 0;
 
         final double width = item.size.width;
         final double height = item.size.height;
+        final double minDim = width < height ? width : height;
+        final double maxDim = width > height ? width : height;
+        section.pageSettings.size = Size(minDim, maxDim);
+
         if (width > height) {
-          section.pageSettings.size = Size(height, width);
           section.pageSettings.orientation = sf.PdfPageOrientation.landscape;
         } else {
-          section.pageSettings.size = Size(width, height);
           section.pageSettings.orientation = sf.PdfPageOrientation.portrait;
         }
 
+        // Calculate rotation BEFORE adding the page to section
+        final sf.PdfPageRotateAngle initialRotation = (item.originalIndex != -1)
+            ? _originalDoc.pages[item.originalIndex].rotation
+            : sf.PdfPageRotateAngle.rotateAngle0;
+
+        sf.PdfPageRotateAngle finalRotation = initialRotation;
+        if (item.rotationDegrees != 0) {
+          finalRotation = _addRotation(initialRotation, item.rotationDegrees);
+        }
+
+        // Set section rotation BEFORE adding page
+        section.pageSettings.rotate = finalRotation;
+
+        sf.PdfPage page = section.pages.add();
+
         if (item.isBlank) {
-          page = section.pages.add();
+          // Empty page
         } else if (item.imageBytes != null) {
-          page = section.pages.add();
-          
           final sf.PdfBitmap bitmap = sf.PdfBitmap(item.imageBytes!);
           page.graphics.drawImage(
             bitmap,
@@ -329,17 +422,8 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
         } else {
           final sourcePage = _originalDoc.pages[item.originalIndex];
           final template = sourcePage.createTemplate();
-          
-          page = section.pages.add();
-          page.rotation = sourcePage.rotation;
           page.graphics.drawPdfTemplate(template, Offset.zero, sourcePage.size);
         }
-
-        // Apply rotation
-        if (item.rotationDegrees != 0) {
-          page.rotation = _addRotation(page.rotation, item.rotationDegrees);
-        }
-        section.pageSettings.rotate = page.rotation;
       }
 
       final List<int> savedBytes = targetDoc.saveSync();

@@ -623,6 +623,34 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
+  Future<String> _resolvePath(String path) async {
+    if (path.startsWith('content://')) {
+      try {
+        const channel = MethodChannel('com.example.signature_addon/intent');
+        final String? resolvedPath = await channel.invokeMethod('resolveContentUri', {'uri': path});
+        if (resolvedPath != null) {
+          return resolvedPath;
+        }
+      } catch (e) {
+        debugPrint('Error resolving content URI: $e');
+      }
+    } else if (path.startsWith('file://')) {
+      try {
+        return Uri.parse(path).toFilePath();
+      } catch (e) {
+        debugPrint('Error parsing file URI: $e');
+      }
+    }
+    return path;
+  }
+
+  File _getFileFromPath(String path) {
+    if (path.startsWith('file://')) {
+      return File.fromUri(Uri.parse(path));
+    }
+    return File(path);
+  }
+
   Future<void> _scanNewDocument() async {
     final bool isProUnlocked = IapService.instance.isPro.value;
     if (!isProUnlocked) {
@@ -632,53 +660,120 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     setState(() => _isLoading = true);
     try {
-      final ImageScanResult? result = await FlutterDocScanner().getScannedDocumentAsImages(
-        page: 20,
-      );
-      if (result == null || result.images.isEmpty) {
-        setState(() => _isLoading = false);
-        return;
-      }
+      // אוסף כל ה-PDF bytes ממספר סריקות
+      final List<Uint8List> allScannedPdfs = [];
 
-      // Convert scanned JPEGs to a new PDF document
-      final sf.PdfDocument targetDoc = sf.PdfDocument();
-      for (final path in result.images) {
-        final file = path.startsWith('file://') ? File.fromUri(Uri.parse(path)) : File(path);
-        if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          final section = targetDoc.sections!.add();
-          section.pageSettings.margins.all = 0;
-          section.pageSettings.size = const Size(595, 842); // A4 page size
-          final page = section.pages.add();
-          final sf.PdfBitmap bitmap = sf.PdfBitmap(bytes);
-          page.graphics.drawImage(
-            bitmap,
-            Rect.fromLTWH(0, 0, page.getClientSize().width, page.getClientSize().height),
-          );
+      bool keepScanning = true;
+      while (keepScanning) {
+        final PdfScanResult? result = await FlutterDocScanner().getScannedDocumentAsPdf(
+          page: 20,
+        );
+        if (result == null) {
+          // המשתמש ביטל — אם כבר יש דפים, ממשיכים עם מה שיש
+          if (allScannedPdfs.isEmpty) {
+            setState(() => _isLoading = false);
+            return;
+          }
+          break;
+        }
+
+        debugPrint('SCANNER PDF URI: ${result.pdfUri}');
+        final String resolvedPath = await _resolvePath(result.pdfUri);
+        final File pdfFile = _getFileFromPath(resolvedPath);
+        if (await pdfFile.exists()) {
+          final Uint8List pdfBytes = await pdfFile.readAsBytes();
+          debugPrint('Read ${pdfBytes.length} bytes from scanned PDF');
+          allScannedPdfs.add(pdfBytes);
+        }
+
+        // שאל אם לסרוק עוד דפים
+        if (!mounted) break;
+        setState(() => _isLoading = false);
+        final bool? addMore = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => Directionality(
+            textDirection: appLanguage.value == 'he' ? TextDirection.rtl : TextDirection.ltr,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(children: [
+                const Icon(Icons.document_scanner, color: Color(0xFF4F46E5)),
+                const SizedBox(width: 8),
+                Text(getStr('scan_new_document')),
+              ]),
+              content: Text(getStr('add_more_pages_prompt')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(getStr('done')),
+                ),
+                FilledButton.icon(
+                  icon: const Icon(Icons.add_a_photo),
+                  label: Text(getStr('scan_another')),
+                  onPressed: () => Navigator.pop(ctx, true),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (addMore != true) {
+          keepScanning = false;
+        } else {
+          setState(() => _isLoading = true);
         }
       }
 
-      final List<int> savedBytes = targetDoc.saveSync();
-      targetDoc.dispose();
+      if (allScannedPdfs.isEmpty) return;
+      setState(() => _isLoading = true);
 
-      final Uint8List pdfBytes = Uint8List.fromList(savedBytes);
+      // מזג את כל ה-PDFs לאחד ושפר קריאות
+      final Uint8List finalPdf = await compute(_mergeAndEnhancePdfsIsolate, allScannedPdfs);
+
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final String docName = 'scan_$timestamp.pdf';
 
       setState(() => _isLoading = false);
-      _openEditor(pdfBytes, docName);
+      _openEditor(finalPdf, docName);
     } catch (e) {
       setState(() => _isLoading = false);
+      debugPrint('Error in _scanNewDocument: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('שגיאה בסריקה: $e')),
       );
     }
   }
 
-  void _openEditor(Uint8List bytes, String name) {
+  /// מיזוג ושיפור קריאות — פועל ב-Isolate כדי לא לחסום את ה-UI
+  static Uint8List _mergeAndEnhancePdfsIsolate(List<Uint8List> pdfBytesList) {
+    // ייבוא הנדרש: syncfusion_flutter_pdf
+    final sf.PdfDocument merged = sf.PdfDocument();
+    for (final pdfBytes in pdfBytesList) {
+      final sf.PdfDocument src = sf.PdfDocument(inputBytes: pdfBytes);
+      for (int i = 0; i < src.pages.count; i++) {
+        final sf.PdfPage srcPage = src.pages[i];
+        final section = merged.sections!.add();
+        section.pageSettings.margins.all = 0;
+        final double w = srcPage.size.width;
+        final double h = srcPage.size.height;
+        final bool isLandscape = w > h;
+        section.pageSettings.size = isLandscape ? Size(w, h) : Size(w, h);
+        section.pageSettings.orientation = isLandscape
+            ? sf.PdfPageOrientation.landscape
+            : sf.PdfPageOrientation.portrait;
+        final sf.PdfPage destPage = section.pages.add();
+        final sf.PdfTemplate template = srcPage.createTemplate();
+        destPage.graphics.drawPdfTemplate(template, Offset.zero, srcPage.size);
+      }
+      src.dispose();
+    }
+    final List<int> bytes = merged.saveSync();
+    merged.dispose();
+    return Uint8List.fromList(bytes);
+  }
+
+  void _openEditor(Uint8List bytes, String name, {String? filePath}) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => EditorScreen(pdfBytes: bytes, pdfName: name),
+        builder: (context) => EditorScreen(pdfBytes: bytes, pdfName: name, filePath: filePath),
       ),
     ).then((_) => _loadRecentFiles());
   }
@@ -764,7 +859,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${getStr('version')} 1.1.1',
+                    '${getStr('version')} 1.2.1',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 12),
@@ -783,9 +878,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                   const SizedBox(height: 12),
                   _buildChangelogItem(
+                    '1.2.1',
+                    getStr('version_changelog_1_2_1'),
+                    isLatest: true,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildChangelogItem(
+                    '1.2.0',
+                    getStr('version_changelog_1_2_0'),
+                    isLatest: false,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildChangelogItem(
                     '1.1.1',
                     getStr('version_changelog_1_1_0'),
-                    isLatest: true,
+                    isLatest: false,
                   ),
                   const SizedBox(height: 12),
                   _buildChangelogItem(
@@ -999,7 +1106,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      '${getStr('version')} 1.1.1',
+                      '${getStr('version')} 1.2.1',
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ),
@@ -1007,7 +1114,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ),
             appBar: AppBar(
-              title: Text('v1.1.1 | ${getStr('dashboard_title')}'),
+              title: Text(getStr('dashboard_title')),
               centerTitle: true,
               actions: [
                 IconButton(
@@ -1162,18 +1269,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           subtitle: Text(
-                                            '$dateStr Γאó $sizeStr',
+                                            '$dateStr • $sizeStr',
                                             style: TextStyle(color: Colors.grey[600], fontSize: 12),
                                           ),
                                           trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                                           onTap: () async {
                                             final bytes = await file.readAsBytes();
                                             if (context.mounted) {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (context) => EditorScreen(pdfBytes: bytes, pdfName: name),
-                                                ),
-                                              ).then((_) => _loadRecentFiles());
+                                              _openEditor(bytes, name, filePath: file.path);
                                             }
                                           },
                                         ),
@@ -1453,8 +1556,14 @@ class _SignatureManagerScreenState extends State<SignatureManagerScreen> {
 class EditorScreen extends StatefulWidget {
   final Uint8List pdfBytes;
   final String pdfName;
+  final String? filePath;
 
-  const EditorScreen({super.key, required this.pdfBytes, required this.pdfName});
+  const EditorScreen({
+    super.key,
+    required this.pdfBytes,
+    required this.pdfName,
+    this.filePath,
+  });
 
   @override
   State<EditorScreen> createState() => _EditorScreenState();
@@ -1566,6 +1675,7 @@ class _EditorScreenState extends State<EditorScreen> {
   void initState() {
     super.initState();
     _currentPdfBytes = widget.pdfBytes;
+    _currentSessionSignedPath = widget.filePath;
     if (widget.pdfName.startsWith('scan_')) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _autosaveDocumentToArchive(widget.pdfBytes);
@@ -1842,6 +1952,52 @@ class _EditorScreenState extends State<EditorScreen> {
         _currentPdfBytes = result;
         _pdfUpdateCounter++;
       });
+    }
+  }
+
+  /// מסובב את העמוד הנוכחי ב-90° בכיוון השעון
+  Future<void> _rotateCurrentPage() async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      await _pushToHistory(currentPdfBytes);
+      final sf.PdfDocument doc = sf.PdfDocument(inputBytes: currentPdfBytes);
+      final int pageIdx = _currentPage - 1;
+      if (pageIdx >= 0 && pageIdx < doc.pages.count) {
+        final sf.PdfPage page = doc.pages[pageIdx];
+        final sf.PdfPageRotateAngle current = page.rotation;
+        // סיבוב 90° עם השעון
+        sf.PdfPageRotateAngle next;
+        switch (current) {
+          case sf.PdfPageRotateAngle.rotateAngle0:
+            next = sf.PdfPageRotateAngle.rotateAngle90;
+            break;
+          case sf.PdfPageRotateAngle.rotateAngle90:
+            next = sf.PdfPageRotateAngle.rotateAngle180;
+            break;
+          case sf.PdfPageRotateAngle.rotateAngle180:
+            next = sf.PdfPageRotateAngle.rotateAngle270;
+            break;
+          case sf.PdfPageRotateAngle.rotateAngle270:
+            next = sf.PdfPageRotateAngle.rotateAngle0;
+            break;
+        }
+        page.rotation = next;
+      }
+      final List<int> saved = doc.saveSync();
+      doc.dispose();
+      _targetPageToRestore = _currentPage;
+      setState(() {
+        _currentPdfBytes = Uint8List.fromList(saved);
+        _pdfUpdateCounter++;
+      });
+    } catch (e) {
+      debugPrint('Error rotating page: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('שגיאה בסיבוב עמוד: $e')),
+      );
+    } finally {
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -2468,13 +2624,37 @@ class _EditorScreenState extends State<EditorScreen> {
                 onPressed: _undoLastSignature,
                 tooltip: getStr('undo_last'),
               ),
+            // כפתור סיבוב עמוד מהיר
+            IconButton(
+              icon: const Icon(Icons.rotate_right),
+              onPressed: _rotateCurrentPage,
+              tooltip: getStr('rotate_page'),
+            ),
             ValueListenableBuilder<bool>(
               valueListenable: IapService.instance.isPro,
               builder: (builderContext, isProUnlocked, child) {
                 return IconButton(
-                  icon: Icon(
-                    Icons.pages,
-                    color: isProUnlocked ? null : const Color(0xFF38BDF8),
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        Icons.auto_stories,
+                        color: isProUnlocked ? null : const Color(0xFF38BDF8),
+                      ),
+                      if (!isProUnlocked)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF4F46E5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.star, size: 8, color: Colors.white),
+                          ),
+                        ),
+                    ],
                   ),
                   onPressed: () {
                     if (isProUnlocked) {
@@ -2533,7 +2713,8 @@ class _EditorScreenState extends State<EditorScreen> {
                             key: ValueKey('pdf_viewer_$_pdfUpdateCounter'),
                             controller: _pdfViewerController,
                       canShowScrollHead: false,
-                      pageLayoutMode: PdfPageLayoutMode.single,
+                      pageLayoutMode: PdfPageLayoutMode.continuous,
+                      pageSpacing: 12,
                       scrollDirection: PdfScrollDirection.vertical,
                       enableTextSelection: false,
                       enableDocumentLinkAnnotation: false,
