@@ -66,7 +66,7 @@ class _PageEditorScreenState extends State<PageEditorScreen> {
   Future<String> _resolvePath(String path) async {
     if (path.startsWith('content://')) {
       try {
-        const channel = MethodChannel('com.example.signature_addon/intent');
+        const channel = MethodChannel('com.freesignpdf.app/intent');
         final String? resolvedPath = await channel.invokeMethod('resolveContentUri', {'uri': path});
         if (resolvedPath != null) {
           return resolvedPath;

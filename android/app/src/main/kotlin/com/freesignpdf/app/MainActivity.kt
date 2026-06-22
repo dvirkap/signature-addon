@@ -1,4 +1,4 @@
-package com.example.signature_addon
+package com.freesignpdf.app
 
 import android.content.Intent
 import android.net.Uri
@@ -12,7 +12,7 @@ import java.io.FileOutputStream
 import java.io.InputStream
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.signature_addon/intent"
+    private val CHANNEL = "com.freesignpdf.app/intent"
     private var intentData: Map<String, String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
