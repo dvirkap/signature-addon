@@ -1,6 +1,6 @@
-﻿{
-  "name": "פשוט לחתום - Just sign",
-  "short_name": "Just sign",
+{
+  "name": "FreeSign PDF - פשוט לחתום",
+  "short_name": "FreeSign PDF",
   "description": "תוסף לחתימה מהירה ונוחה על קובצי PDF / Quick and easy PDF signing web app.",
   "start_url": "./index.html",
   "display": "standalone",
@@ -22,7 +22,7 @@
   "file_handlers": [
     {
       "action": "./index.html",
-      "name": "פשוט לחתום - Just sign",
+      "name": "FreeSign PDF - פשוט לחתום",
       "accept": {
         "application/pdf": [".pdf"]
       }

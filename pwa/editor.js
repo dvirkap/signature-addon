@@ -1,5 +1,5 @@
 // ============================================================
-// פשוט לחתום - Just sign - PWA Core Logic
+// FreeSign PDF - פשוט לחתום - PWA Core Logic
 // Dynamic bilingual (HE/EN) rendering, scrolling, touch rotation & resize.
 // ============================================================
 

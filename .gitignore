@@ -70,3 +70,4 @@ development
 # Windows/ephemeral
 windows/flutter/ephemeral/
 windows/flutter/Generated.cmake
+.gstack/

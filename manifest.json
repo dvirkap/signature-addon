@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "פשוט לחתום - Just sign",
+  "name": "FreeSign PDF - פשוט לחתום",
   "version": "1.0",
   "description": "תוסף לחתימה מהירה ונוחה על קובצי PDF / Quick and easy PDF signing extension.",
   "permissions": [

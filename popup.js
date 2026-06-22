@@ -10,17 +10,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (userLang === 'en') {
     document.documentElement.dir = 'ltr';
     document.documentElement.lang = 'en';
-    appTitle.textContent = "Just sign";
+    appTitle.textContent = "FreeSign PDF";
     signCurrentBtn.textContent = "Sign current PDF file";
     openEditorBtn.textContent = "Open signature workspace";
-    creditsFooter.textContent = "Just sign by Dvir Kaplan";
+    creditsFooter.textContent = "FreeSign PDF by Dvir Kaplan";
   } else {
     document.documentElement.dir = 'rtl';
     document.documentElement.lang = 'he';
-    appTitle.textContent = "פשוט לחתום";
+    appTitle.textContent = "FreeSign PDF - פשוט לחתום";
     signCurrentBtn.textContent = "חתום על קובץ ה-PDF הנוכחי";
     openEditorBtn.textContent = "פתח את לוח החתימות";
-    creditsFooter.textContent = "פשוט לחתום ע"י דביר קפלן";
+    creditsFooter.textContent = "FreeSign PDF ע\"י דביר קפלן";
   }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

@@ -56,7 +56,7 @@ def parse_translations():
 
 # Base translations for Hebrew and English to preserve their original high-quality strings
 HE_BASE = {
-    "appName": "פשוט לחתום - Just sign",
+    "appName": "FreeSign PDF - פשוט לחתום",
     "loadPdf": "📁 טעינת PDF",
     "saveDownloadPdf": "💾 שמירה והורדת PDF",
     "noFileLoaded": "לא נטען קובץ PDF",
@@ -115,7 +115,7 @@ HE_BASE = {
 }
 
 EN_BASE = {
-    "appName": "Just sign",
+    "appName": "FreeSign PDF",
     "loadPdf": "📁 Load PDF",
     "saveDownloadPdf": "💾 Save & Download PDF",
     "noFileLoaded": "No PDF file loaded",

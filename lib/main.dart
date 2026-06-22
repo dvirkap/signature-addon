@@ -233,7 +233,7 @@ class _MyAppState extends State<MyApp> {
       valueListenable: appLanguage,
       builder: (context, lang, child) {
         return MaterialApp(
-          title: lang == 'he' ? 'Just sign - פשוט לחתום' : 'Just sign',
+          title: lang == 'he' ? 'FreeSign PDF - פשוט לחתום' : 'FreeSign PDF',
           debugShowCheckedModeBanner: false,
           locale: Locale(lang),
           localizationsDelegates: const [

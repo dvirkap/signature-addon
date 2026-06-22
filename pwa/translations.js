@@ -78,7 +78,7 @@ const appSupportedLanguages = {
 
 const translations = {
   "he": {
-    "appName": "פשוט לחתום - Just sign",
+    "appName": "FreeSign PDF - פשוט לחתום",
     "loadPdf": "📁 טעינת PDF",
     "saveDownloadPdf": "💾 שמירה והורדת PDF",
     "noFileLoaded": "לא נטען קובץ PDF",
@@ -136,7 +136,7 @@ const translations = {
     "importError": "ייבוא הגיבוי נכשל! בדוק שהקובץ תקין."
   },
   "en": {
-    "appName": "Just sign",
+    "appName": "FreeSign PDF",
     "loadPdf": "📁 Load PDF",
     "saveDownloadPdf": "💾 Save & Download PDF",
     "noFileLoaded": "No PDF file loaded",
