@@ -71,3 +71,6 @@ development
 windows/flutter/ephemeral/
 windows/flutter/Generated.cmake
 .gstack/
+
+android/app/*.jks
+android/*.jks
